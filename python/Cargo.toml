@@ -1,0 +1,23 @@
+[package]
+name = "i3s-python"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+name = "i3s"
+
+[dependencies]
+pyo3 = { version = "0.24.1", features = [
+    "abi3",
+    "abi3-py39",
+    "extension-module",
+] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dependencies.i3s]
+path = ".."
+
+[features]
+default = ["pyo3/extension-module"]
