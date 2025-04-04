@@ -9,7 +9,7 @@ fn callback(node: &Node, level: &u8) -> bool {
 }
 
 fn main() {
-    let path = r"C:\Users\cal11713\data\i3s-samples\Cambridge_3857.slpk";
+    let path = r"";
     let scene_layer = i3s::SceneLayer::from_uri(&path).unwrap();
     let now = Instant::now();
     let nodes = scene_layer.nodes();
