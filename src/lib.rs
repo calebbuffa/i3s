@@ -1,8 +1,8 @@
-pub mod accessor;
 pub mod attr;
 pub mod crs;
 pub mod decode;
 pub mod defn;
+pub mod err;
 pub mod geom;
 pub mod mesh;
 pub mod node;
@@ -11,15 +11,14 @@ pub mod options;
 pub mod resource;
 pub mod service;
 pub mod slpk;
-pub mod uri;
+mod traits;
 pub mod visual;
-use std::sync::Arc;
 
 use resource::{ResourceManager, resource_manager_factory};
 
 use crate::decode::ResourceDecoder;
 use crate::defn::SceneDefinition;
-use crate::node::{Node, NodeArray};
+use crate::node::NodeArray;
 use crate::options::I3SFormat;
 
 /// SceneLayer
@@ -39,17 +38,12 @@ impl SceneLayer {
         }
     }
 
-    pub fn create_decoder<'a>(&'a self) -> ResourceDecoder<'a> {
-        let decoder = ResourceDecoder::new(&self.manager, &self.definition.store.profile);
-        decoder
+    pub fn decoder<'a>(&'a self) -> ResourceDecoder<'a> {
+        ResourceDecoder::new(&self.manager, &self.definition.store.profile)
     }
 
     pub fn nodes(&self) -> NodeArray {
         NodeArray::new(&self.manager)
-    }
-
-    pub fn root(&self) -> Option<Arc<Node>> {
-        self.nodes().root()
     }
 
     /// Create a SceneLayer from a URI.

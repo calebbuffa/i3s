@@ -47,8 +47,6 @@ pub struct OrientedBoundingBox {
     #[serde(rename = "halfSize")]
     pub half_size: Vec<f64>,
     pub quaternion: Vec<f64>,
-    #[serde(skip)]
-    pub extras: Option<serde_json::Value>,
 }
 
 impl OrientedBoundingBox {

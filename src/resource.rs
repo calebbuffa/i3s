@@ -2,13 +2,12 @@
 
 use std::sync::Arc;
 
-use crate::accessor::Accessor;
 use crate::defn::SceneDefinition;
 use crate::node::Node;
 use crate::options::{Compression, I3SFormat};
 use crate::service::Service;
 use crate::slpk::SceneLayerPackage;
-use crate::uri::UriBuilder;
+use crate::traits::{Accessor, UriBuilder};
 
 /// Factory for creating Resource Managers.
 pub fn resource_manager_factory(fmt: I3SFormat) -> fn(&str) -> ResourceManager {
@@ -33,32 +32,28 @@ impl ResourceManager {
             ResourceManager::SceneLayerPackage(package) => &package.scene_definition,
         }
     }
-}
 
-impl Accessor for ResourceManager {
-    fn get_node(&self, index: &usize) -> Result<Arc<Node>, String> {
+    pub fn get_node(&self, index: &usize) -> Result<Node, String> {
         match self {
             ResourceManager::Service(service) => service.get_node(index),
             ResourceManager::SceneLayerPackage(package) => package.get_node(index),
         }
     }
 
-    fn get(&self, uri: &str) -> Result<Vec<u8>, String> {
+    pub fn get(&self, uri: &str) -> Result<Vec<u8>, String> {
         match self {
             ResourceManager::Service(service) => service.get(uri),
             ResourceManager::SceneLayerPackage(package) => package.get(uri),
         }
     }
-}
 
-impl UriBuilder for ResourceManager {
-    fn create_texture_uri(
+    pub fn create_texture_uri(
         &self,
         resource: &usize,
         name: &str,
         fmt: &str,
         compression: &Compression,
-    ) -> Result<String, String> {
+    ) -> Option<String> {
         match self {
             ResourceManager::Service(service) => {
                 service.create_texture_uri(resource, name, fmt, compression)
@@ -69,11 +64,11 @@ impl UriBuilder for ResourceManager {
         }
     }
 
-    fn create_geometry_uri(
+    pub fn create_geometry_uri(
         &self,
         resource: &usize,
         compression: &Compression,
-    ) -> Result<String, String> {
+    ) -> Option<String> {
         match self {
             ResourceManager::Service(service) => service.create_geometry_uri(resource, compression),
             ResourceManager::SceneLayerPackage(package) => {

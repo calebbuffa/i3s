@@ -1,18 +1,24 @@
 extern crate i3s;
 
 use i3s::node::Node;
-use std::sync::Arc;
+use std::time::Instant;
 
-fn callback(node: &Arc<Node>, level: &u8) -> bool {
-    let msg = format!("Node ID: {}, Level: {}", node.index, level);
-    println!("{}", msg);
+fn callback(node: &Node, level: &u8) -> bool {
+    // println!("Node Index {}, Level: {}", node.index, level);
     true
 }
 
 fn main() {
-    let path = r"";
+    let path = r"C:\Users\cal11713\data\i3s-samples\Cambridge_3857.slpk";
     let scene_layer = i3s::SceneLayer::from_uri(&path).unwrap();
-    let mut nodes = scene_layer.nodes();
+    let now = Instant::now();
+    let nodes = scene_layer.nodes();
     nodes.traverse(callback);
+    let elapsed = now.elapsed();
+    println!("Elapsed time: {:?}", elapsed);
+    let now = Instant::now();
+    nodes.traverse(callback);
+    let elapsed = now.elapsed();
+    println!("Elapsed time: {:?}", elapsed);
     println!("Total nodes: {}", nodes.len());
 }

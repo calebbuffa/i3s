@@ -1,28 +1,12 @@
 //! Decoding utility functions.
 
-use crate::accessor::Accessor;
 use crate::mesh::{MeshGeometry, MeshMaterial};
 use crate::options::{Compression, Profile};
 use crate::resource::ResourceManager;
-use crate::uri::UriBuilder;
+use crate::traits::Decoder;
 use flate2::read::GzDecoder;
 use std::io::Read;
 use std::sync::Arc;
-
-/// Decoder trait
-pub(crate) trait Decoder {
-    fn decode_geometry(
-        &self,
-        geometry: &mut MeshGeometry,
-        compression: &Compression,
-    ) -> Result<Arc<Vec<u8>>, String>;
-
-    fn decode_material(
-        &self,
-        material: &mut MeshMaterial,
-        compression: &Compression,
-    ) -> Result<Arc<Vec<u8>>, String>;
-}
 
 /// Mesh Pyramid Decoder
 pub struct MeshPyramidDecoder<'a> {
@@ -46,7 +30,11 @@ impl<'a> Decoder for MeshPyramidDecoder<'a> {
         if geometry.cache.get("data").is_none() {
             let uri = self
                 .manager
-                .create_geometry_uri(&geometry.resource, compression)?;
+                .create_geometry_uri(&geometry.resource, compression);
+            if uri.is_none() {
+                return Err("Failed to create geometry URI.".to_string());
+            }
+            let uri = uri.unwrap();
             let data = self.manager.get(&uri)?;
             let decompressed = GzDecoder::new(&data[..])
                 .bytes()
@@ -84,7 +72,11 @@ impl<'a> Decoder for MeshPyramidDecoder<'a> {
                 fmt.name.as_str(),
                 fmt.format.as_ref(),
                 compression,
-            )?;
+            );
+            if uri.is_none() {
+                return Err("Failed to create texture URI.".to_string());
+            }
+            let uri = uri.unwrap();
             let data = self.manager.get(&uri)?;
             material.cache.insert("data".to_string(), Arc::new(data));
         }
@@ -102,14 +94,10 @@ impl<'a> ResourceDecoder<'a> {
     pub fn new(manager: &'a ResourceManager, profile: &Profile) -> Self {
         match profile {
             Profile::MeshPyramids => ResourceDecoder::MeshPyramid(MeshPyramidDecoder::new(manager)),
-            Profile::Points => todo!(),
-            Profile::PointClouds => todo!(),
-            Profile::Building => todo!(),
+            _ => todo!(),
         }
     }
-}
 
-impl<'a> Decoder for ResourceDecoder<'a> {
     fn decode_geometry(
         &self,
         geometry: &mut MeshGeometry,
@@ -139,8 +127,6 @@ pub fn decoder_factory<'a>(
         Profile::MeshPyramids => {
             |manager| ResourceDecoder::MeshPyramid(MeshPyramidDecoder::new(manager))
         }
-        Profile::Points => todo!(),
-        Profile::PointClouds => todo!(),
-        Profile::Building => todo!(),
+        _ => todo!(),
     }
 }
