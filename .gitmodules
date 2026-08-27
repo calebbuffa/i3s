@@ -1,0 +1,4 @@
+[submodule "extern/i3s-spec"]
+	path = extern/i3s-spec
+	url = https://github.com/Esri/i3s-spec.git
+	branch = master
