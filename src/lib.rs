@@ -1,8 +1,6 @@
 mod attributes;
-pub mod bld;
-pub mod cmn;
-pub mod pcsl;
-pub mod psl;
+pub mod generated;
+pub use generated::{bld, cmn, pcsl, psl};
 mod select;
 mod urls;
 

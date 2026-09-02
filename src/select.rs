@@ -61,8 +61,8 @@ pub fn select_geometry_buffer(layer: &SceneLayerInfo) -> Option<(usize, usize)> 
 mod tests {
     use super::*;
     use crate::cmn::{
-        CompressedAttributes, CompressedAttributesAttributes, CompressedAttributesEncoding,
-        GeometryBuffer, GeometryDefinition, GeometryNormal, SceneLayerInfo,
+        CompressedAttributes, CompressedAttributesEncoding, GeometryBuffer, GeometryDefinition,
+        GeometryNormal, SceneLayerInfo,
     };
 
     fn layer_with_buffers(bufs: Vec<GeometryBuffer>) -> SceneLayerInfo {
@@ -86,7 +86,7 @@ mod tests {
             GeometryBuffer {
                 compressed_attributes: Some(CompressedAttributes {
                     encoding: CompressedAttributesEncoding::Draco,
-                    attributes: vec![CompressedAttributesAttributes::Position],
+                    attributes: vec!["position".into()],
                 }),
                 ..Default::default()
             },
@@ -110,10 +110,7 @@ mod tests {
     #[test]
     fn returns_none_for_no_triangle() {
         let layer = SceneLayerInfo {
-            geometry_definitions: vec![GeometryDefinition {
-                topology: Some(GeometryDefinitionTopology::Unknown),
-                geometry_buffers: vec![GeometryBuffer::default()],
-            }],
+            geometry_definitions: vec![],
             ..Default::default()
         };
         assert_eq!(select_geometry_buffer(&layer), None);

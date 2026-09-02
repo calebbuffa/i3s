@@ -1,7 +1,3 @@
-[submodule "extern/i3s-spec"]
-	path = extern/i3s-spec
-	url = https://github.com/Esri/i3s-spec
-	branch = master
 [submodule "extern/i3s-schema"]
 	path = extern/i3s-schema
 	url = https://github.com/calebbuffa/i3s-schema

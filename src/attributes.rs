@@ -14,7 +14,7 @@
 //! String attributes have a `attribute_byte_counts` section between the count
 //! header and the UTF-8 payload.
 
-use crate::cmn::{AttributeStorageInfo, HeaderValueType};
+use crate::cmn::{AttributeStorageInfo, HeaderValueValueType as HeaderValueType};
 use std::collections::HashMap;
 
 /// Minimal zero-copy cursor over a byte slice; replaces the outil dependency.
@@ -236,9 +236,6 @@ pub fn decode_attribute(
             }
             AttributeValues::Utf8(strings)
         }
-        HeaderValueType::Unknown => {
-            return Err(AttributeDecodeError::UnknownValueType("Unknown".into()));
-        }
     };
 
     Ok(AttributeBuffer {
@@ -312,12 +309,7 @@ fn extract_value_type(
 /// Whether the `ordering` field includes `AttributeByteCounts`, indicating
 /// a string-type attribute.
 pub fn has_byte_counts(info: &AttributeStorageInfo) -> bool {
-    info.ordering.as_deref().unwrap_or(&[]).iter().any(|o| {
-        matches!(
-            o,
-            crate::cmn::AttributeStorageInfoOrdering::AttributeByteCounts
-        )
-    })
+    info.ordering.iter().any(|o| o == "attributeByteCounts")
 }
 
 /// Build a minimal `AttributeStorageInfo` for testing without a JSON layer doc.
@@ -328,7 +320,7 @@ fn make_info(name: &str, value_type: &str) -> AttributeStorageInfo {
         key: format!("f_{name}"),
         name: name.to_owned(),
         header: vec![],
-        ordering: None,
+        ordering: vec![],
         attribute_values: Some(Value {
             value_type: value_type.to_owned(),
             encoding: None,
@@ -484,7 +476,7 @@ mod tests {
             key: "f_x".into(),
             name: "x".into(),
             header: vec![],
-            ordering: None,
+            ordering: vec![],
             attribute_values: None, // absent
             attribute_byte_counts: None,
             object_ids: None,
