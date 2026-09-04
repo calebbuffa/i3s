@@ -14,7 +14,7 @@
 //! String attributes have a `attribute_byte_counts` section between the count
 //! header and the UTF-8 payload.
 
-use crate::cmn::{AttributeStorageInfo, HeaderValueValueType as HeaderValueType};
+use crate::cmn::{AttributeStorageInfo, HeaderValueType, Ordering};
 use std::collections::HashMap;
 
 /// Minimal zero-copy cursor over a byte slice; replaces the outil dependency.
@@ -309,7 +309,9 @@ fn extract_value_type(
 /// Whether the `ordering` field includes `AttributeByteCounts`, indicating
 /// a string-type attribute.
 pub fn has_byte_counts(info: &AttributeStorageInfo) -> bool {
-    info.ordering.iter().any(|o| o == "attributeByteCounts")
+    info.ordering
+        .iter()
+        .any(|o| *o == Ordering::AttributeByteCounts)
 }
 
 /// Build a minimal `AttributeStorageInfo` for testing without a JSON layer doc.
@@ -325,7 +327,7 @@ fn make_info(name: &str, value_type: &str) -> AttributeStorageInfo {
             value_type: value_type.to_owned(),
             encoding: None,
             time_encoding: None,
-            values_per_element: Some(1.0),
+            values_per_element: Some(1),
         }),
         attribute_byte_counts: None,
         object_ids: None,

@@ -17,5 +17,5 @@ serde_json = { version = "1", features = ["preserve_order"] }
 heck = "0.5"
 proc-macro2 = "1"
 quote = "1"
-schemagen = { git = "https://github.com/calebbuffa/schemagen" }
+schemagen = { path = "../../schemagen" }
 syn = { version = "2", features = ["parsing"] }

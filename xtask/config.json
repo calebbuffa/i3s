@@ -5,32 +5,7 @@
     "sharedresource": "SharedResources",
     "attributestats": "AttributeStatistics"
   },
-  "shared_enums": {
-    "SceneLayerType": { "module": "cmn", "doc": "I3S scene layer type." },
-    "SceneLayerCapabilities": { "module": "cmn", "doc": "Capabilities supported by a scene layer." },
-    "StoreResourcePattern": { "module": "cmn" },
-    "StoreNormalReferenceFrame": { "module": "cmn" },
-    "StoreLodType": { "module": "cmn" },
-    "StoreLodModel": { "module": "cmn" },
-    "HeaderValueType": { "module": "cmn", "doc": "Binary attribute value type from the header." }
-  },
-  "enum_overrides": {
-    "SceneLayerInfo.layerType": "SceneLayerType",
-    "SceneLayerInfoPsl.layerType": "SceneLayerType",
-    "SceneLayerInfo.capabilities": "SceneLayerCapabilities",
-    "SceneLayerInfoPsl.capabilities": "SceneLayerCapabilities",
-    "Layer.layerType": "SceneLayerType",
-    "Layer.capabilities": "SceneLayerCapabilities",
-    "PointCloudLayer.layerType": "SceneLayerType",
-    "PointCloudLayer.capabilities": "SceneLayerCapabilities",
-    "StorePsl.resourcePattern": "StoreResourcePattern",
-    "StorePsl.normalReferenceFrame": "StoreNormalReferenceFrame",
-    "StorePsl.lodType": "StoreLodType",
-    "StorePsl.lodModel": "StoreLodModel",
+  "enumNames": {
     "HeaderValue.valueType": "HeaderValueType"
-  },
-  "field_renames": {
-    "$ref": "ref_"
-  },
-  "hand_modules": ["lib", "attributes", "select", "urls"]
+  }
 }

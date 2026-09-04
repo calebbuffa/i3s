@@ -3,7 +3,7 @@ mod policy;
 use anyhow::{Context, Result};
 use clap::Parser;
 use policy::{I3sConfig, I3sPolicy};
-use schemagen::{Config, Graph, generate_types_from_roots, render_module};
+use schemagen::{Config, Graph, generate_types_from_roots, render_modules};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -44,8 +44,9 @@ fn main() -> Result<()> {
         .context("schema directory must have a name")?;
     let mut graph = Graph::new(graph_root);
     graph.add_search_path(&schema_dir);
-    let mut modules = Vec::new();
-    for profile in ["cmn", "bld", "psl", "pcsl"] {
+    let profiles = ["cmn", "bld", "psl", "pcsl"];
+    let mut generated = Vec::new();
+    for profile in profiles {
         let roots = graph.load_tree(PathBuf::from(schema_relative).join(profile))?;
         let policy = I3sPolicy {
             profile,
@@ -53,13 +54,18 @@ fn main() -> Result<()> {
         };
         let definitions = generate_types_from_roots(&mut graph, roots, &config, &policy)
             .map_err(anyhow::Error::msg)?;
-        let body = render_module("", &definitions, &config, &policy).map_err(anyhow::Error::msg)?;
-        modules.push(format!("pub mod {profile} {{\n{body}\n}}"));
+        generated.push((profile, definitions, policy));
     }
-    let source = format!(
-        "//! Auto-generated i3s types. Do not edit manually.\n\n{}",
-        modules.join("\n\n")
-    );
+    let modules: Vec<(&str, &[_], &I3sPolicy)> = generated
+        .iter()
+        .map(|(profile, definitions, policy)| (*profile, definitions.as_slice(), policy))
+        .collect();
+    let source = render_modules(
+        "Auto-generated i3s types. Do not edit manually.",
+        &modules,
+        &config,
+    )
+    .map_err(anyhow::Error::msg)?;
 
     let mut stale = false;
     if args.check {

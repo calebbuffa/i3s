@@ -61,8 +61,8 @@ pub fn select_geometry_buffer(layer: &SceneLayerInfo) -> Option<(usize, usize)> 
 mod tests {
     use super::*;
     use crate::cmn::{
-        CompressedAttributes, CompressedAttributesEncoding, GeometryBuffer, GeometryDefinition,
-        GeometryNormal, SceneLayerInfo,
+        Attributes, CompressedAttributes, CompressedAttributesEncoding, GeometryBuffer,
+        GeometryDefinition, GeometryNormal, SceneLayerInfo,
     };
 
     fn layer_with_buffers(bufs: Vec<GeometryBuffer>) -> SceneLayerInfo {
@@ -86,7 +86,7 @@ mod tests {
             GeometryBuffer {
                 compressed_attributes: Some(CompressedAttributes {
                     encoding: CompressedAttributesEncoding::Draco,
-                    attributes: vec!["position".into()],
+                    attributes: vec![Attributes::Position],
                 }),
                 ..Default::default()
             },
