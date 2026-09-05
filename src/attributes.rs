@@ -14,64 +14,9 @@
 //! String attributes have a `attribute_byte_counts` section between the count
 //! header and the UTF-8 payload.
 
+use crate::binary::{BufferReader, UnexpectedEndOfData};
 use crate::cmn::{AttributeStorageInfo, HeaderValueType, Ordering};
 use std::collections::HashMap;
-
-/// Minimal zero-copy cursor over a byte slice; replaces the outil dependency.
-struct BufferReader<'a> {
-    data: &'a [u8],
-    pos: usize,
-}
-
-#[derive(Debug)]
-struct UnexpectedEndOfData;
-
-impl<'a> BufferReader<'a> {
-    fn new(data: &'a [u8]) -> Self {
-        Self { data, pos: 0 }
-    }
-
-    fn read_le<T: LeBytes>(&mut self) -> Result<T, UnexpectedEndOfData> {
-        let end = self.pos + T::SIZE;
-        if end > self.data.len() {
-            return Err(UnexpectedEndOfData);
-        }
-        let val = T::from_le(&self.data[self.pos..end]);
-        self.pos = end;
-        Ok(val)
-    }
-
-    fn read_bytes(&mut self, n: usize) -> Result<&'a [u8], UnexpectedEndOfData> {
-        let end = self.pos + n;
-        if end > self.data.len() {
-            return Err(UnexpectedEndOfData);
-        }
-        let slice = &self.data[self.pos..end];
-        self.pos = end;
-        Ok(slice)
-    }
-
-    fn read_le_vec<T: LeBytes>(&mut self, count: usize) -> Result<Vec<T>, UnexpectedEndOfData> {
-        (0..count).map(|_| self.read_le::<T>()).collect()
-    }
-}
-
-trait LeBytes: Sized + Copy {
-    const SIZE: usize;
-    fn from_le(bytes: &[u8]) -> Self;
-}
-
-macro_rules! impl_le_bytes {
-    ($($t:ty),*) => {
-        $(impl LeBytes for $t {
-            const SIZE: usize = std::mem::size_of::<$t>();
-            fn from_le(bytes: &[u8]) -> Self {
-                Self::from_le_bytes(bytes.try_into().unwrap())
-            }
-        })*
-    };
-}
-impl_le_bytes!(u8, u16, u32, u64, i8, i16, i32, i64, f32, f64);
 
 /// A decoded attribute buffer for one field of one node.
 #[derive(Debug, Clone)]
@@ -239,7 +184,7 @@ pub fn decode_attribute(
     };
 
     Ok(AttributeBuffer {
-        field_name: info.name.clone(),
+        field_name: info.name.to_string(),
         values,
     })
 }
@@ -289,7 +234,7 @@ fn extract_value_type(
         .as_ref()
         .ok_or(AttributeDecodeError::MissingAttributeValues)?;
 
-    let type_str = val.value_type.as_str();
+    let type_str = val.value_type.as_ref();
 
     let vt = match type_str {
         "Int8" => HeaderValueType::Int8,
@@ -309,9 +254,7 @@ fn extract_value_type(
 /// Whether the `ordering` field includes `AttributeByteCounts`, indicating
 /// a string-type attribute.
 pub fn has_byte_counts(info: &AttributeStorageInfo) -> bool {
-    info.ordering
-        .iter()
-        .any(|o| *o == Ordering::AttributeByteCounts)
+    info.ordering.contains(&Ordering::AttributeByteCounts)
 }
 
 /// Build a minimal `AttributeStorageInfo` for testing without a JSON layer doc.
@@ -319,12 +262,12 @@ pub fn has_byte_counts(info: &AttributeStorageInfo) -> bool {
 fn make_info(name: &str, value_type: &str) -> AttributeStorageInfo {
     use crate::cmn::Value;
     AttributeStorageInfo {
-        key: format!("f_{name}"),
-        name: name.to_owned(),
+        key: format!("f_{name}").into(),
+        name: name.into(),
         header: vec![],
         ordering: vec![],
         attribute_values: Some(Value {
-            value_type: value_type.to_owned(),
+            value_type: value_type.into(),
             encoding: None,
             time_encoding: None,
             values_per_element: Some(1),

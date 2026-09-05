@@ -1,6 +1,7 @@
 use heck::ToUpperCamelCase;
 use schemagen::ir::SchemaNode;
 use schemagen::policy::GenerationPolicy;
+use schemagen::settings::TypeSettings;
 use schemagen::types::RustType;
 use serde::Deserialize;
 use std::path::Path;
@@ -17,6 +18,15 @@ pub struct I3sPolicy<'a> {
 }
 
 impl GenerationPolicy for I3sPolicy<'_> {
+    fn settings(&self) -> TypeSettings {
+        // I3S documents are parsed once and read many times, so boxed strings
+        // trade a growth capacity nobody uses for eight bytes per optional
+        // field. Numeric widths stay at JSON's own, because the spec's own
+        // `minimum`/`maximum` bounds already narrow the fields that can be
+        // narrowed, and narrowing the rest by default would be a guess.
+        TypeSettings::default().with_string(schemagen::StringRepr::Boxed)
+    }
+
     fn type_name(&self, title: &str, schema: &SchemaNode) -> Option<String> {
         let stem = Path::new(&schema.location.file)
             .file_stem()?

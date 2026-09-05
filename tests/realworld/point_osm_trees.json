@@ -1,0 +1,1230 @@
+{
+"id" : 0,
+"version" : "fb27b9a8-bbdd-474b-86a4-5ec1ab642a3a",
+"name" : "OpenStreetMap Thematic Trees",
+"layerType" : "Point",
+"fullExtent" : {
+"spatialReference" : {
+"wkid" : 4326,
+"latestWkid" : 4326
+}
+,
+"xmin" : -180,
+"xmax" : 180,
+"ymin" : -55.9754,
+"ymax" : 78.2127553,
+"zmin" : -7.000000332482159,
+"zmax" : 114.00000373274088
+}
+,
+"spatialReference" : {
+"wkid" : 4326,
+"latestWkid" : 4326
+}
+,
+"alias" : "OpenStreetMap Thematic Trees",
+"description" : "daylight v1.58, builder v1.18 | This 3D base layer presents trees of OpenStreetMap (OSM) data hosted by Esri. Esri created this 3D base layer of trees from the Daylight map distribution of OSM data, which is supported by Meta. The 3D base layer trees will be updated every month with the latest version of OSM Daylight data.",
+"priority" : "Low",
+"copyrightText" : "Map data OpenStreetMap contributors, Scene Layer by ESRI",
+"serviceUpdateTimeStamp" : {
+"lastUpdate" : 1732312634000
+}
+,
+"capabilities" : [],
+"store" : {
+"id" : "0",
+"profile" : "points",
+"version" : "2.0",
+"resourcePattern" : ["3dNodeIndexDocument", "Attributes", "featureData"],
+"rootNode" : "./nodes/root",
+"extent" : [-180, -55.9754, 180, 78.2127553],
+"indexCRS" : "http://www.opengis.net/def/crs/EPSG/0/4326",
+"vertexCRS" : "http://www.opengis.net/def/crs/EPSG/0/4326",
+"lodType" : "AutoThinning",
+"lodModel" : "node-switching"
+}
+,
+"fields" : [{
+"name" : "ObjectID",
+"type" : "esriFieldTypeOID",
+"alias" : "ObjectID"
+}
+, {
+"name" : "OSMID",
+"type" : "esriFieldTypeDouble",
+"alias" : "OSMID"
+}
+, {
+"name" : "OSMType",
+"type" : "esriFieldTypeSmallInteger",
+"alias" : "OSMType"
+}
+, {
+"name" : "Type",
+"type" : "esriFieldTypeSmallInteger",
+"alias" : "Type",
+"domain" : {
+"type" : "codedValue",
+"name" : "Type",
+"fieldType" : "esriFieldTypeSmallInteger",
+"codedValues" : [{
+"name" : "Frangula",
+"code" : 0
+}
+, {
+"name" : "Echinodorus",
+"code" : 1
+}
+, {
+"name" : "Castanea",
+"code" : 2
+}
+, {
+"name" : "Platanus",
+"code" : 3
+}
+, {
+"name" : "Prunus",
+"code" : 4
+}
+, {
+"name" : "Casuarina",
+"code" : 5
+}
+, {
+"name" : "Taxodium",
+"code" : 6
+}
+, {
+"name" : "Abies",
+"code" : 7
+}
+, {
+"name" : "Phyllostachys",
+"code" : 8
+}
+, {
+"name" : "Musa",
+"code" : 9
+}
+, {
+"name" : "Tilia",
+"code" : 10
+}
+, {
+"name" : "Laurus",
+"code" : 11
+}
+, {
+"name" : "Robinia",
+"code" : 12
+}
+, {
+"name" : "Eucalyptus",
+"code" : 13
+}
+, {
+"name" : "Buxus",
+"code" : 14
+}
+, {
+"name" : "Phlebodium",
+"code" : 15
+}
+, {
+"name" : "Umbellularia",
+"code" : 16
+}
+, {
+"name" : "Calocedrus",
+"code" : 17
+}
+, {
+"name" : "Washingtonia",
+"code" : 18
+}
+, {
+"name" : "Sequoia",
+"code" : 19
+}
+, {
+"name" : "Juglans",
+"code" : 20
+}
+, {
+"name" : "Cocos",
+"code" : 21
+}
+, {
+"name" : "Crataegus",
+"code" : 22
+}
+, {
+"name" : "Sorbus",
+"code" : 23
+}
+, {
+"name" : "Aesculus",
+"code" : 24
+}
+, {
+"name" : "Phoenix",
+"code" : 25
+}
+, {
+"name" : "Chilopsis",
+"code" : 26
+}
+, {
+"name" : "Pseudotsuga",
+"code" : 27
+}
+, {
+"name" : "Fagus",
+"code" : 28
+}
+, {
+"name" : "Larix",
+"code" : 29
+}
+, {
+"name" : "Ficus",
+"code" : 30
+}
+, {
+"name" : "Ulmus",
+"code" : 31
+}
+, {
+"name" : "Fremontodendron",
+"code" : 32
+}
+, {
+"name" : "Cornus",
+"code" : 33
+}
+, {
+"name" : "GenericDead",
+"code" : 34
+}
+, {
+"name" : "Stump",
+"code" : 35
+}
+, {
+"name" : "Unknown",
+"code" : 36
+}
+, {
+"name" : "Sequoiadendron",
+"code" : 37
+}
+, {
+"name" : "Agave",
+"code" : 38
+}
+, {
+"name" : "Aralia",
+"code" : 39
+}
+, {
+"name" : "Philodendron",
+"code" : 40
+}
+, {
+"name" : "Cupressus",
+"code" : 41
+}
+, {
+"name" : "Convallaria",
+"code" : 42
+}
+, {
+"name" : "Pinus",
+"code" : 43
+}
+, {
+"name" : "Rhamnus",
+"code" : 44
+}
+, {
+"name" : "Sabal",
+"code" : 45
+}
+, {
+"name" : "Cercocarpus",
+"code" : 46
+}
+, {
+"name" : "Quercus Rubra",
+"code" : 47
+}
+, {
+"name" : "Acer",
+"code" : 48
+}
+, {
+"name" : "Picea",
+"code" : 49
+}
+, {
+"name" : "Citrus",
+"code" : 50
+}
+, {
+"name" : "Bulbophyllum",
+"code" : 51
+}
+, {
+"name" : "Ligustrum",
+"code" : 52
+}
+, {
+"name" : "Cordyline",
+"code" : 53
+}
+, {
+"name" : "Parkinsonia",
+"code" : 54
+}
+, {
+"name" : "Betula",
+"code" : 55
+}
+, {
+"name" : "Chamaedorea",
+"code" : 56
+}
+, {
+"name" : "Opuntia",
+"code" : 57
+}
+, {
+"name" : "Alnus",
+"code" : 58
+}
+, {
+"name" : "Carya",
+"code" : 59
+}
+, {
+"name" : "Rhododendron",
+"code" : 60
+}
+, {
+"name" : "Rosa",
+"code" : 61
+}
+, {
+"name" : "Aiphanes",
+"code" : 62
+}
+, {
+"name" : "Carnegiea",
+"code" : 63
+}
+, {
+"name" : "Sassafras",
+"code" : 64
+}
+, {
+"name" : "Pinus Sylvestris",
+"code" : 65
+}
+, {
+"name" : "Yucca",
+"code" : 66
+}
+, {
+"name" : "Amelanchier",
+"code" : 67
+}
+, {
+"name" : "Sansevieria",
+"code" : 68
+}
+, {
+"name" : "Magnolia",
+"code" : 69
+}
+, {
+"name" : "Spartium",
+"code" : 70
+}
+, {
+"name" : "Arbutus",
+"code" : 71
+}
+, {
+"name" : "Acer Saccharum",
+"code" : 72
+}
+, {
+"name" : "Helianthus",
+"code" : 73
+}
+, {
+"name" : "Liquidambar",
+"code" : 74
+}
+, {
+"name" : "Acacia",
+"code" : 75
+}
+, {
+"name" : "Juniperus",
+"code" : 76
+}
+, {
+"name" : "Fraxinus",
+"code" : 77
+}
+, {
+"name" : "Quercus",
+"code" : 78
+}
+, {
+"name" : "Populus",
+"code" : 79
+}
+, {
+"name" : "Salix",
+"code" : 80
+}
+, {
+"name" : "Hamamelis",
+"code" : 81
+}
+]
+}
+
+}
+, {
+"name" : "Height",
+"type" : "esriFieldTypeSingle",
+"alias" : "Height"
+}
+],
+"attributeStorageInfo" : [{
+"key" : "f_0",
+"name" : "ObjectID",
+"header" : [{
+"property" : "count",
+"valueType" : "UInt32"
+}
+],
+"ordering" : ["attributeValues"],
+"attributeValues" : {
+"valueType" : "Float64",
+"valuesPerElement" : 1
+}
+
+}
+, {
+"key" : "f_1",
+"name" : "OSMID",
+"header" : [{
+"property" : "count",
+"valueType" : "UInt32"
+}
+],
+"ordering" : ["attributeValues"],
+"attributeValues" : {
+"valueType" : "Float64",
+"valuesPerElement" : 1
+}
+
+}
+, {
+"key" : "f_2",
+"name" : "OSMType",
+"header" : [{
+"property" : "count",
+"valueType" : "UInt32"
+}
+],
+"ordering" : ["attributeValues"],
+"attributeValues" : {
+"valueType" : "UInt8",
+"valuesPerElement" : 1
+}
+
+}
+, {
+"key" : "f_3",
+"name" : "Type",
+"header" : [{
+"property" : "count",
+"valueType" : "UInt32"
+}
+],
+"ordering" : ["attributeValues"],
+"attributeValues" : {
+"valueType" : "UInt8",
+"valuesPerElement" : 1
+}
+
+}
+, {
+"key" : "f_4",
+"name" : "Height",
+"header" : [{
+"property" : "count",
+"valueType" : "UInt32"
+}
+],
+"ordering" : ["attributeValues"],
+"attributeValues" : {
+"valueType" : "Float32",
+"valuesPerElement" : 1
+}
+
+}
+],
+"statisticsInfo" : [{
+"key" : "f_0",
+"name" : "ObjectID",
+"href" : "./statistics/f_0/0"
+}
+, {
+"key" : "f_1",
+"name" : "OSMID",
+"href" : "./statistics/f_1/0"
+}
+, {
+"key" : "f_2",
+"name" : "OSMType",
+"href" : "./statistics/f_2/0"
+}
+, {
+"key" : "f_3",
+"name" : "Type",
+"href" : "./statistics/f_3/0"
+}
+, {
+"key" : "f_4",
+"name" : "Height",
+"href" : "./statistics/f_4/0"
+}
+],
+"drawingInfo" : {  "renderer": {    "type": "uniqueValue",    "field1" : "Type",    "defaultLabel" : "Other",    "visualVariables" : [      {        "type": "rotationInfo",        "rotationType" : "geographic",        "valueExpression" : "hash($feature['ObjectID']) * 8.381e-8",        "valueExpressionTitle" : "rotation"      },      {        "type": "sizeInfo",        "axis" : "height",        "valueUnit" : "meters",        "field" : "height"      }    ],    "uniqueValueInfos": [{
+"label":"Frangula",
+"value":0,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Frangula"
+}},
+{
+"label":"Echinodorus",
+"value":1,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Echinodorus"
+}},
+{
+"label":"Castanea",
+"value":2,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Castanea"
+}},
+{
+"label":"Platanus",
+"value":3,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Platanus"
+}},
+{
+"label":"Prunus",
+"value":4,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Prunus"
+}},
+{
+"label":"Casuarina",
+"value":5,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Casuarina"
+}},
+{
+"label":"Taxodium",
+"value":6,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Taxodium"
+}},
+{
+"label":"Abies",
+"value":7,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Abies"
+}},
+{
+"label":"Phyllostachys",
+"value":8,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Phyllostachys"
+}},
+{
+"label":"Musa",
+"value":9,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Musa"
+}},
+{
+"label":"Tilia",
+"value":10,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Tilia"
+}},
+{
+"label":"Laurus",
+"value":11,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Laurus"
+}},
+{
+"label":"Robinia",
+"value":12,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Robinia"
+}},
+{
+"label":"Eucalyptus",
+"value":13,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Eucalyptus"
+}},
+{
+"label":"Buxus",
+"value":14,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Buxus"
+}},
+{
+"label":"Phlebodium",
+"value":15,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Phlebodium"
+}},
+{
+"label":"Umbellularia",
+"value":16,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Umbellularia"
+}},
+{
+"label":"Calocedrus",
+"value":17,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Calocedrus"
+}},
+{
+"label":"Washingtonia",
+"value":18,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Washingtonia"
+}},
+{
+"label":"Sequoia",
+"value":19,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Sequoia"
+}},
+{
+"label":"Juglans",
+"value":20,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Juglans"
+}},
+{
+"label":"Cocos",
+"value":21,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Cocos"
+}},
+{
+"label":"Crataegus",
+"value":22,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Crataegus"
+}},
+{
+"label":"Sorbus",
+"value":23,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Sorbus"
+}},
+{
+"label":"Aesculus",
+"value":24,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Aesculus"
+}},
+{
+"label":"Phoenix",
+"value":25,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Phoenix"
+}},
+{
+"label":"Chilopsis",
+"value":26,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Chilopsis"
+}},
+{
+"label":"Pseudotsuga",
+"value":27,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Pseudotsuga"
+}},
+{
+"label":"Fagus",
+"value":28,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Fagus"
+}},
+{
+"label":"Larix",
+"value":29,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Larix"
+}},
+{
+"label":"Ficus",
+"value":30,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Ficus"
+}},
+{
+"label":"Ulmus",
+"value":31,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Ulmus"
+}},
+{
+"label":"Fremontodendron",
+"value":32,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Fremontodendron"
+}},
+{
+"label":"Cornus",
+"value":33,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Cornus"
+}},
+{
+"label":"GenericDead",
+"value":34,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"GenericDead"
+}},
+{
+"label":"Stump",
+"value":35,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Stump"
+}},
+{
+"label":"Unknown",
+"value":36,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Unknown"
+}},
+{
+"label":"Sequoiadendron",
+"value":37,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Sequoiadendron"
+}},
+{
+"label":"Agave",
+"value":38,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Agave"
+}},
+{
+"label":"Aralia",
+"value":39,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Aralia"
+}},
+{
+"label":"Philodendron",
+"value":40,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Philodendron"
+}},
+{
+"label":"Cupressus",
+"value":41,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Cupressus"
+}},
+{
+"label":"Convallaria",
+"value":42,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Convallaria"
+}},
+{
+"label":"Pinus",
+"value":43,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Pinus"
+}},
+{
+"label":"Rhamnus",
+"value":44,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Rhamnus"
+}},
+{
+"label":"Sabal",
+"value":45,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Sabal"
+}},
+{
+"label":"Cercocarpus",
+"value":46,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Cercocarpus"
+}},
+{
+"label":"Quercus Rubra",
+"value":47,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Quercus Rubra"
+}},
+{
+"label":"Acer",
+"value":48,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Acer"
+}},
+{
+"label":"Picea",
+"value":49,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Picea"
+}},
+{
+"label":"Citrus",
+"value":50,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Citrus"
+}},
+{
+"label":"Bulbophyllum",
+"value":51,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Bulbophyllum"
+}},
+{
+"label":"Ligustrum",
+"value":52,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Ligustrum"
+}},
+{
+"label":"Cordyline",
+"value":53,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Cordyline"
+}},
+{
+"label":"Parkinsonia",
+"value":54,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Parkinsonia"
+}},
+{
+"label":"Betula",
+"value":55,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Betula"
+}},
+{
+"label":"Chamaedorea",
+"value":56,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Chamaedorea"
+}},
+{
+"label":"Opuntia",
+"value":57,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Opuntia"
+}},
+{
+"label":"Alnus",
+"value":58,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Alnus"
+}},
+{
+"label":"Carya",
+"value":59,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Carya"
+}},
+{
+"label":"Rhododendron",
+"value":60,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Rhododendron"
+}},
+{
+"label":"Rosa",
+"value":61,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Rosa"
+}},
+{
+"label":"Aiphanes",
+"value":62,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Aiphanes"
+}},
+{
+"label":"Carnegiea",
+"value":63,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Carnegiea"
+}},
+{
+"label":"Sassafras",
+"value":64,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Sassafras"
+}},
+{
+"label":"Pinus Sylvestris",
+"value":65,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Pinus Sylvestris"
+}},
+{
+"label":"Yucca",
+"value":66,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Yucca"
+}},
+{
+"label":"Amelanchier",
+"value":67,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Amelanchier"
+}},
+{
+"label":"Sansevieria",
+"value":68,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Sansevieria"
+}},
+{
+"label":"Magnolia",
+"value":69,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Magnolia"
+}},
+{
+"label":"Spartium",
+"value":70,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Spartium"
+}},
+{
+"label":"Arbutus",
+"value":71,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Arbutus"
+}},
+{
+"label":"Acer Saccharum",
+"value":72,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Acer Saccharum"
+}},
+{
+"label":"Helianthus",
+"value":73,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Helianthus"
+}},
+{
+"label":"Liquidambar",
+"value":74,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Liquidambar"
+}},
+{
+"label":"Acacia",
+"value":75,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Acacia"
+}},
+{
+"label":"Juniperus",
+"value":76,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Juniperus"
+}},
+{
+"label":"Fraxinus",
+"value":77,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Fraxinus"
+}},
+{
+"label":"Quercus",
+"value":78,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Quercus"
+}},
+{
+"label":"Populus",
+"value":79,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Populus"
+}},
+{
+"label":"Salix",
+"value":80,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Salix"
+}},
+{
+"label":"Hamamelis",
+"value":81,
+"symbol": {
+"type": "styleSymbolReference",
+"styleName":"EsriThematicTreesStyle",
+"name":"Hamamelis"
+}}
+]  }},
+"popupInfo" : 
+    {
+    "title": "OSM 3D Trees",
+    "mediaInfos": [
+    ],
+    "fieldInfos": [
+{ "fieldName": "Type", "visible" : true, "isEditable" : false, "label" : "Type" },{ "fieldName": "Height", "visible": true, "isEditable": false, "format": { "places": 2, "digitSeparator": true }, "label": "Height" }
+    ],
+    "popupElements": [
+      {
+        "fieldInfos": [
+{ "fieldName": "Type", "visible" : true, "isEditable" : false, "label" : "Type" },{ "fieldName": "Height", "visible": true, "isEditable": false, "format": { "places": 2, "digitSeparator": true }, "label": "Height" }
+    ],
+        "type": "fields"
+      },
+      {
+         "type": "text",
+         "text": "<p><a href=\"{expression/osm_view_url}\" target=\"_blank\" rel=\"nofollow ugc\">View this feature</a>&nbsp;in OpenStreetMap<br><a href=\"{expression/osm_edit_url}\" target=\"_blank\" rel=\"nofollow ugc\">Edit this feature</a>&nbsp;in OpenStreetMap<br><br><strong>Data &copy; OpenStreetMap contributors</strong></p>"
+      }
+    ],
+    "expressionInfos": [
+      {
+        "name": "osm_type_expr",
+        "title": "OSM Type",
+        "expression": "decode($feature.OSMType,0,'Node (Individual tree)',1,'Way (Tree row)','?')",
+        "returnType": "string"
+      },
+      {
+        "name": "osm_view_url",
+        "title": "OSM View",
+        "expression": "'https://www.openstreetmap.org/' + decode($feature.OSMType,0,'node',1,'way','?') + '/' + $feature['OSMID']",
+        "returnType": "string"
+      },
+      {
+        "name": "osm_edit_url",
+        "title": "OSM Edit",
+        "expression": "'https://www.openstreetmap.org/edit?' + decode($feature.OSMType,0,'node',1,'way','?') + '=' + $feature['OSMID']",
+        "returnType": "string"
+      }
+    ]
+  }
+  ,
+"elevationInfo" : 
+{
+  "mode": "relativeToGround"
+}
+,
+"pointNodePages" : {
+"nodesPerPage" : 84,
+"lodSelectionMetricType" : "maxScreenThreshold"
+}
+,
+"geometryDefinitions" : [{
+"geometryBuffers" : [{
+"compressedAttributes" : {
+"encoding" : "draco",
+"attributes" : ["position", "feature-index"]
+}
+
+}
+]
+}
+]
+}

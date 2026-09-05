@@ -29,16 +29,16 @@ pub enum Error {
     #[error("layer {layer_id} has no nodePages definition")]
     NoNodePages {
         /// The layer that lacks a node-page definition.
-        layer_id: i64,
+        layer_id: u32,
     },
 
     /// `nodePages.nodesPerPage` was zero or negative.
     #[error("layer {layer_id} declares an invalid nodesPerPage of {nodes_per_page}")]
     InvalidNodesPerPage {
         /// The offending layer.
-        layer_id: i64,
+        layer_id: u32,
         /// The declared value.
-        nodes_per_page: i64,
+        nodes_per_page: u32,
     },
 
     /// A node index referenced by the tree was not present in the page that

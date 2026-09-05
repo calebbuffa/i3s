@@ -34,6 +34,19 @@ impl<K, V> EmptyCollection for std::collections::HashMap<K, V> {
         self.is_empty()
     }
 }
+/// Deserializes a collection, treating `null` as absent.
+///
+/// A schema that declares an array or object and does not require it
+/// is routinely satisfied by producers writing an explicit `null`
+/// rather than omitting the key. `#[serde(default)]` only covers the
+/// omitted case, so without this a conforming document is rejected.
+fn deserialize_null_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Default + Deserialize<'de>,
+{
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
+}
 pub mod cmn {
     use super::*;
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -927,14 +940,18 @@ pub mod cmn {
         ///Declares the headers of the binary attribute data.
         pub header: Vec<HeaderValue>,
         ///The unique field identifier key.
-        pub key: String,
+        pub key: Box<str>,
         ///The name of the field.
-        pub name: String,
+        pub name: Box<str>,
         ///Stores the object-id values of each feature within the node.
         #[serde(rename = "objectIds", default, skip_serializing_if = "Option::is_none")]
         pub object_ids: Option<Value>,
         ///Possible values for each array string: `attributeByteCounts`: Should only be present when working with string data types. `attributeValues`: Should always be present. `ObjectIds`
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub ordering: Vec<Ordering>,
     }
     ///The cachedDrawingInfo object indicates if the *drawingInfo* object is captured as part of the binary scene layer representation. This object is used for the 3D Object and Integrated Mesh scene layer if no [drawingInfo](drawingInfo.cmn.md) is defined.
@@ -962,7 +979,7 @@ pub mod cmn {
         pub faces: Option<VertexAttribute>,
         ///Provides the order of the keys in featureAttributes, if present.
         #[serde(rename = "featureAttributeOrder")]
-        pub feature_attribute_order: Vec<String>,
+        pub feature_attribute_order: Vec<Box<str>>,
         ///Declaration of the attributes per feature in the geometry, such as feature ID or face range.
         #[serde(rename = "featureAttributes")]
         pub feature_attributes: FeatureAttribute,
@@ -976,7 +993,7 @@ pub mod cmn {
         ///Defines header fields in the geometry resources of this store that precede the vertex (and index) data.
         pub header: Vec<HeaderAttribute>,
         ///Defines the ordering of the vertex Attributes.
-        pub ordering: Vec<String>,
+        pub ordering: Vec<Box<str>>,
         ///Declares the topology of embedded geometry attributes. When 'Indexed', the indices must also be declared in the geometry schema ('faces') and precede the vertexAttribute data. Possible values are: `PerAttributeArray`Indexed`: When Indexed, the indices must also be declared in the geometry schema (faces) and precede the vertexAttribute data.
         pub topology: DefaultGeometrySchemaTopology,
         ///Declaration of the attributes per vertex in the geometry, such as position, normals or texture coordinates.
@@ -991,12 +1008,13 @@ pub mod cmn {
         #[serde(
             rename = "codedValues",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub coded_values: Vec<DomainCodedValue>,
         ///Description of the domain
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub description: Option<String>,
+        pub description: Option<Box<str>>,
         ///The field type is the type of attribute field with which the domain can be associated. Possible values are: `esriFieldTypeDate`esriFieldTypeSingle`esriFieldTypeDouble`esriFieldTypeInteger`esriFieldTypeSmallInteger`esriFieldTypeString`
         #[serde(rename = "fieldType", default, skip_serializing_if = "Option::is_none")]
         pub field_type: Option<DomainFieldType>,
@@ -1008,10 +1026,10 @@ pub mod cmn {
         )]
         pub merge_policy: Option<MergePolicy>,
         ///Name of the domain. Must be unique per Scene Layer.
-        pub name: String,
+        pub name: Box<str>,
         ///Range of the domain. Only numeric types are possible.
         #[serde(default)]
-        pub range: [u32; 2],
+        pub range: [f64; 2],
         ///Split policy for the domain. Not used by Scene Layers. Possible values are: `esriSPTGeometryRatio`esriSPTDuplicate`esriSPTDefaultValue`
         #[serde(
             rename = "splitPolicy",
@@ -1030,7 +1048,7 @@ pub mod cmn {
         ///Coded value (i.e. field value).
         pub code: serde_json::Value,
         ///Text representation of the domain value.
-        pub name: String,
+        pub name: Box<str>,
     }
     ///The drawingInfo object contains drawing information for a scene layer.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1055,10 +1073,10 @@ pub mod cmn {
         pub mode: Option<Mode>,
         ///Offset is always added to the result of the above logic except for onTheGround where offset is ignored.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub offset: Option<u32>,
+        pub offset: Option<f64>,
         ///A string value indicating the unit for the values in elevationInfo
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub unit: Option<String>,
+        pub unit: Option<Box<str>>,
     }
     ///Declaration of the attributes per feature in the geometry, such as feature ID or face range.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1085,15 +1103,19 @@ pub mod cmn {
         pub id: u32,
         ///The name of the Feature Class this feature belongs to.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub layer: Option<String>,
+        pub layer: Option<Box<str>>,
         ///An array of six doubles, corresponding to xmin, ymin, zmin, xmax, ymax and zmax of the minimum bounding box of the feature, expressed in the vertexCRS, without offset. The mbb can be used with the Feature’s Transform to provide a LOD0 representation without loading the GeometryAttributes.
         #[serde(default)]
         pub mbb: [f64; 6],
         ///An array of three doubles, providing an optional, 'semantic' pivot offset that can be used to e.g. correctly drape tree symbols.
         #[serde(rename = "pivotOffset", default)]
-        pub pivot_offset: [u32; 3],
+        pub pivot_offset: [f64; 3],
         ///An array of two or three doubles, giving the x,y(,z) (easting/northing/elevation) position of this feature's minimum bounding sphere center, in the vertexCRS.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub position: Vec<f64>,
     }
     ///Declaration of the attributes per feature in the geometry, such as feature ID or face range.
@@ -1103,13 +1125,15 @@ pub mod cmn {
         #[serde(
             rename = "featureData",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub feature_data: Vec<FeatureData>,
         #[serde(
             rename = "geometryData",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub geometry_data: Vec<Geometry>,
     }
@@ -1119,12 +1143,12 @@ pub mod cmn {
     pub struct Field {
         ///Alias of the field.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub alias: Option<String>,
+        pub alias: Option<Box<str>>,
         ///Array of domains defined for a field.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub domain: Option<Domain>,
         ///Name of the field.
-        pub name: String,
+        pub name: Box<str>,
         ///Type of the field. Possible values are: `esriFieldTypeDate`esriFieldTypeSingle`esriFieldTypeDouble`esriFieldTypeGUID`esriFieldTypeGlobalID`esriFieldTypeInteger`esriFieldTypeOID`esriFieldTypeSmallInteger`esriFieldTypeString`
         #[serde(rename = "type")]
         pub r#type: FieldType,
@@ -1167,7 +1191,7 @@ pub mod cmn {
         pub transformation: [f64; 16],
         ///The type denotes whether the following geometry is defined by using array buffer views (ArrayBufferView), as an internal reference (GeometryReference), as a reference to a shared Resource (SharedResourceReference) or embedded (Embedded).
         #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
-        pub r#type: Option<String>,
+        pub r#type: Option<Box<str>>,
     }
     ///Each geometryAttribute object is an accessor, i.e. a view, into an array buffer. There are two types of geometryAttributes - vertexAttributes and faceAttributes. The vertexAttributes describe valid properties for a single vertex, and faceAttributes describe faces and other structures by providing a set of indices. For example, the faces.position index attribute is used to define which vertex positions make up a face.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1326,11 +1350,12 @@ pub mod cmn {
         #[serde(
             rename = "faceRange",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub face_range: Vec<u32>,
         ///In-document absolute reference to full geometry definition (Embedded or ArrayBufferView) using the I3S json pointer syntax. For example, /geometryData/1. See [OGC I3S Specification](https://docs.opengeospatial.org/cs/17-014r5/17-014r5.html#28) for more info.
-        pub href: String,
+        pub href: Box<str>,
         ///True if this geometry participates in an LoD tree. Always true in mesh-pyramids profile.
         #[serde(
             rename = "lodGeometry",
@@ -1340,7 +1365,7 @@ pub mod cmn {
         pub lod_geometry: Option<bool>,
         ///The type denotes whether the following geometry is defined by using array buffer views (arrayBufferView), as an internal reference (geometryReference), as a reference to a shared Resource (sharedResourceReference) or embedded (Embedded).
         #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
-        pub r#type: Option<String>,
+        pub r#type: Option<Box<str>>,
     }
     ///Defines the texture coordinates of the geometry.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1379,7 +1404,7 @@ pub mod cmn {
     #[serde(rename_all = "camelCase")]
     pub struct HeaderAttribute {
         ///The name of the property in the header.
-        pub property: String,
+        pub property: Box<str>,
         ///The element type of the header property. Possible values are: `UInt8`UInt16`UInt32`UInt64`Int16`Int32`Int64`Float32`Float64`
         #[serde(rename = "type")]
         pub r#type: HeaderAttributeType,
@@ -1414,7 +1439,7 @@ pub mod cmn {
         pub height_unit: Option<HeightUnit>,
         ///Represents the vertical coordinate system.
         #[serde(rename = "vertCRS", default, skip_serializing_if = "Option::is_none")]
-        pub vert_crs: Option<String>,
+        pub vert_crs: Option<Box<str>>,
     }
     ///The bin size may be computed as (max-min)/bin count. Please note that stats.histo.min/max is not equivalent to stats.min/max since values smaller than stats.histo.min and greater than stats.histo.max are counted in the first and last bin respectively. The values stats.min and stats.max may be conservative estimates. The bins would be distributed as follows: `(-inf, stats.min + bin_size], (stats.min + bin_size, stats.min + 2 * bin_size], ... , (stats.min + (bin_count - 1) * bin_size], (stats.min + (bin_count - 1) * bin_size, +inf)`
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1435,16 +1460,25 @@ pub mod cmn {
         #[serde(
             rename = "byteOffset",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub byte_offset: Vec<u32>,
         ///The href to the image(s), one per encoding, in the same order as the encodings.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
-        pub href: Vec<String>,
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
+        pub href: Vec<Box<str>>,
         ///A unique ID for each image. Generated using the BuildID function.
-        pub id: String,
+        pub id: Box<str>,
         ///The length in bytes of this image's encodings. There is one per encoding, in the same order as the encodings.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub length: Vec<u32>,
         ///The maximum size of a single pixel in world units. This property is used by the client to pick the image to load and render.
         #[serde(
@@ -1455,7 +1489,7 @@ pub mod cmn {
         pub pixel_in_world_units: Option<f64>,
         ///width of this image, in pixels.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub size: Option<u32>,
+        pub size: Option<f64>,
     }
     ///LoD (Level of Detail) selection. A client needs information to determine whether a node's contents are "good enough" to render in the current 3D view under constraints such as resolution, screen size, bandwidth and available memory and target minimum quality goals. Multiple LoD selection metrics can be included. These metrics are used by clients to determine the optimal resource access patterns. Each I3S profile definition provides additional details on LoD Selection.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1483,7 +1517,7 @@ pub mod cmn {
         #[serde(rename = "$ref", default, skip_serializing_if = "Option::is_none")]
         pub r#ref: Option<String>,
         ///A name for the material as assigned in the creating application.
-        pub name: String,
+        pub name: Box<str>,
         ///Parameter defined for the material.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub params: Option<MaterialParams>,
@@ -1552,7 +1586,11 @@ pub mod cmn {
     #[serde(rename_all = "camelCase")]
     pub struct MaterialParams {
         ///Ambient color of this material. Ambient color is the color of an object where it is in shadow. This color is what the object reflects when illuminated by ambient light rather than direct light.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub ambient: Vec<f64>,
         ///TRUE if features with this material should cast shadows.
         #[serde(
@@ -1563,9 +1601,13 @@ pub mod cmn {
         pub cast_shadows: Option<bool>,
         ///Indicates the material culling options {back, front, *none*}.
         #[serde(rename = "cullFace", default, skip_serializing_if = "Option::is_none")]
-        pub cull_face: Option<String>,
+        pub cull_face: Option<Box<str>>,
         ///Diffuse color of this material. Diffuse color is the most instinctive meaning of the color of an object. It is that essential color that the object reveals under pure white light. It is perceived as the color of the object itself rather than a reflection of the light.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub diffuse: Vec<f64>,
         ///TRUE if features with this material should receive shadows
         #[serde(
@@ -1584,7 +1626,11 @@ pub mod cmn {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub shininess: Option<f64>,
         ///Specular color of this material. Specular color is the color of the light of a specular reflection (specular reflection is the type of reflection that is characteristic of light reflected from a shiny surface).
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub specular: Vec<f64>,
         ///Indicates transparency of this material; 0 = opaque, 1 = fully transparent.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1706,7 +1752,11 @@ pub mod cmn {
     #[serde(rename_all = "camelCase")]
     pub struct Node {
         ///index of the children nodes indices.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub children: Vec<u32>,
         ///The index in the node array. May be **different than** material, geometry and attribute `resource` id. See [`mesh`](mesh.cmn.md) for more information.
         pub index: u32,
@@ -1738,37 +1788,48 @@ pub mod cmn {
         #[serde(
             rename = "attributeData",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub attribute_data: Vec<Resource>,
         ///Reference to the child nodes of a node.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub children: Vec<NodeReference>,
         ///Creation date of this node in UTC, presented as a string in the format YYYY-MM-DDThh:mm:ss.sTZD, with a fixed 'Z' time zone (see http://www.w3.org/TR/NOTE-datetime).
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub created: Option<String>,
+        pub created: Option<Box<str>>,
         ///Expiration date of this node in UTC, presented as a string in the format YYYY-MM-DDThh:mm:ss.sTZD, with a fixed 'Z' time zone (see http://www.w3.org/TR/NOTE-datetime).
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub expires: Option<String>,
+        pub expires: Option<Box<str>>,
         ///Resource reference describing a FeatureData document.
         #[serde(
             rename = "featureData",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub feature_data: Vec<Resource>,
         ///**Deprecated.** A list of summary information on the features present in this node, used for pre-visualisation and LoD switching in featureTree LoD stores.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub features: Vec<Features>,
         ///Resource reference describing a geometry resource.
         #[serde(
             rename = "geometryData",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub geometry_data: Vec<Resource>,
         ///Tree-key ID. A unique identifier of a node within the scene layer. At 1.7 the tree-key is the integer id of the node represented as a string.
-        pub id: String,
+        pub id: Box<str>,
         ///Explicit level of this node within the index tree. The lowest level is 0, which is always the root node.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub level: Option<u32>,
@@ -1779,7 +1840,11 @@ pub mod cmn {
         #[serde(default)]
         pub mbs: [f64; 4],
         ///Reference to the neighbor (same level, spatial proximity) nodes of a node.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub neighbors: Vec<NodeReference>,
         ///Describes oriented bounding box.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1802,7 +1867,8 @@ pub mod cmn {
         #[serde(
             rename = "textureData",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub texture_data: Vec<Resource>,
         ///Optional, 3D (4x4) transformation matrix expressed as a linear array of 16 values.
@@ -1810,7 +1876,7 @@ pub mod cmn {
         pub transform: [f64; 16],
         ///The version (store update session ID) of this node.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub version: Option<String>,
+        pub version: Option<Box<str>>,
     }
     ///The node page object representing the tree as a flat array of nodes where internal nodes reference their children by their array indices.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1846,9 +1912,9 @@ pub mod cmn {
         pub feature_count: Option<u32>,
         ///Number of values per element.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub href: Option<String>,
+        pub href: Option<Box<str>>,
         ///Tree Key ID of the referenced node represented as string.
-        pub id: String,
+        pub id: Box<str>,
         ///An array of four doubles, corresponding to x, y, z and radius of the [minimum bounding sphere](mbs.cmn.md) of a node.
         #[serde(default)]
         pub mbs: [f64; 4],
@@ -1857,7 +1923,7 @@ pub mod cmn {
         pub obb: Option<Obb>,
         ///Version (store update session ID) of the referenced node.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub version: Option<String>,
+        pub version: Option<Box<str>>,
     }
     ///An Oriented Bounding Box (OBB) is a compact bounding volume representation, tightly fitting the geometries it represents. An OBBs' invariance to translation and rotation, makes it ideal as the optimal and default bounding volume representation in I3S. When constructing an OBB for I3S use, there are two considerations an implementer needs to be make based on the Coordinate Reference System (CRS) of the layer:
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1867,7 +1933,7 @@ pub mod cmn {
         pub center: [f64; 3],
         ///Half size of the oriented bounding box in units of the CRS. For a global scene, such as the XY coordinate system in WGS1984, the center is specified in latitude/longitude in decimal degrees, elevation (Z) in meters.
         #[serde(rename = "halfSize")]
-        pub half_size: [u32; 3],
+        pub half_size: [f64; 3],
         ///Orientation of the oriented bounding box as a 4-component quaternion. For a global scene, the quaternion is in an Earth-Centric-Earth-Fixed (ECEF) Cartesian space. ( Z+ : North, Y+ : East, X+: lon=lat=0.0). Note: A quaternion is a four-element vector that can be used to encode any rotation in a 3D coordinate system. The quaternion components are in the order x, y, z, w.
         pub quaternion: [f64; 4],
     }
@@ -1913,38 +1979,42 @@ pub mod cmn {
     pub struct PopupInfo {
         ///A string that appears in the body of the popup window as a description. It is also possible to specify the description as HTML-formatted content.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub description: Option<String>,
+        pub description: Option<Box<str>>,
         ///List of Arcade expressions added to the pop-up. [See more](https://developers.arcgis.com/web-scene-specification/objects/popupExpressionInfo/) information on supported in ArcGIS clients.
         #[serde(
             rename = "expressionInfos",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub expression_infos: Vec<serde_json::Value>,
         ///Array of fieldInfo information properties. This information is provided by the service layer definition. [See more](https://developers.arcgis.com/web-scene-specification/objects/fieldInfo/) information on supported in ArcGIS clients.
         #[serde(
             rename = "fieldInfos",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub field_infos: Vec<serde_json::Value>,
         ///Array of various mediaInfo to display. Can be of type image, piechart, barchart, columnchart, or linechart. The order given is the order in which it displays. [See more](https://developers.arcgis.com/web-scene-specification/objects/mediaInfo/) information on supported in ArcGIS clients.
         #[serde(
             rename = "mediaInfos",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub media_infos: Vec<serde_json::Value>,
         ///An array of popupElement objects that represent an ordered list of popup elements. [See more](https://developers.arcgis.com/web-scene-specification/objects/popupElement/) information on supported in ArcGIS clients.
         #[serde(
             rename = "popupElements",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub popup_elements: Vec<serde_json::Value>,
         ///A string that appears at the top of the popup window as a title
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub title: Option<String>,
+        pub title: Option<Box<str>>,
     }
     ///Range information allows to filter features of a layer within a minimum and maximum range. Range is often used to visualize indoor spaces like picking a floor of a building or visualize rooms belonging to a specific occupation.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1952,10 +2022,10 @@ pub mod cmn {
     pub struct RangeInfo {
         ///Field name to used for the range. The statistics of the field will contain the min and max values of all features for this rangeInfo.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub field: Option<String>,
+        pub field: Option<Box<str>>,
         ///A unique name that can be referenced by an application to represent the range.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub name: Option<String>,
+        pub name: Option<Box<str>>,
     }
     ///Resource objects are pointers to different types of resources related to a node, such as the feature data, the geometry attributes and indices, textures and shared resources.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -1965,37 +2035,41 @@ pub mod cmn {
         #[serde(
             rename = "faceElements",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub face_elements: Vec<u32>,
         ///**Deprecated.** Only applicable for featureData resources. Provides inclusive indices of the features list in this node that indicate which features of the node are located in this bundle.
         #[serde(
             rename = "featureRange",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub feature_range: Vec<u32>,
         ///The relative URL to the referenced resource.
-        pub href: String,
+        pub href: Box<str>,
         ///**Deprecated.** The list of layer names that indicates which layer features in the bundle belongs to. The client can use this information to selectively download bundles.
         #[serde(
             rename = "layerContent",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
-        pub layer_content: Vec<String>,
+        pub layer_content: Vec<Box<str>>,
         ///**Deprecated.** Only applicable for textureData resources. TRUE if the bundle contains multiple textures. If FALSE or not set, clients can interpret the entire bundle as a single image.
         #[serde(
             rename = "multiTextureBundle",
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub multi_texture_bundle: Option<String>,
+        pub multi_texture_bundle: Option<Box<str>>,
         ///**Deprecated.** Only applicable for geometryData resources. Represents the count of elements in vertexAttributes; multiply by the sum of bytes required for each element as defined in the defaultGeometrySchema.
         #[serde(
             rename = "vertexElements",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub vertex_elements: Vec<u32>,
     }
@@ -2008,12 +2082,13 @@ pub mod cmn {
         pub z_factor: Option<f64>,
         ///The display alias to be used for this layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub alias: Option<String>,
+        pub alias: Option<Box<str>>,
         ///Provides the schema and layout used for storing attribute content in binary format in I3S.
         #[serde(
             rename = "attributeStorageInfo",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub attribute_storage_info: Vec<AttributeStorageInfo>,
         ///Indicates if any styling information represented as drawingInfo is captured as part of the binary mesh representation. This helps provide optimal client-side access. Currently the color component of the drawingInfo is supported.
@@ -2031,10 +2106,10 @@ pub mod cmn {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub copyright_text: Option<String>,
+        pub copyright_text: Option<Box<str>>,
         ///Description string for this layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub description: Option<String>,
+        pub description: Option<Box<str>>,
         ///Indicates if client application will show the popup information. Default is FALSE.
         #[serde(
             rename = "disablePopup",
@@ -2057,7 +2132,11 @@ pub mod cmn {
         )]
         pub elevation_info: Option<ElevationInfo>,
         ///A collection of objects that describe each attribute field regarding its field name, datatype, and a user friendly name {name,type,alias}. It includes all fields that are included as part of the scene layer as derived from a source input feature layer.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub fields: Vec<Field>,
         ///3D extent. If `layer.fullExtent.spatialReference` is specified, it must match `layer.spatialReference`.
         #[serde(
@@ -2067,7 +2146,12 @@ pub mod cmn {
         )]
         pub full_extent: Option<FullExtent>,
         ///Define the layouts of mesh geometry and its attributes.
-        #[serde(rename = "geometryDefinitions")]
+        #[serde(
+            rename = "geometryDefinitions",
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub geometry_definitions: Vec<GeometryDefinition>,
         ///Enables consuming clients to quickly determine whether this layer is compatible (with respect to its horizontal and vertical coordinate system) with existing content.
         #[serde(
@@ -2078,7 +2162,7 @@ pub mod cmn {
         pub height_model_info: Option<HeightModelInfo>,
         ///The relative URL to the 3DSceneLayerResource. Only present as part of the SceneServiceInfo resource.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub href: Option<String>,
+        pub href: Option<Box<str>>,
         ///Unique numeric ID of the layer.
         pub id: u32,
         ///The user-visible layer typePossible values are: `3DObject`IntegratedMesh`
@@ -2088,12 +2172,13 @@ pub mod cmn {
         #[serde(
             rename = "materialDefinitions",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub material_definitions: Vec<MaterialDefinitions>,
         ///The name of this layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub name: Option<String>,
+        pub name: Option<Box<str>>,
         ///The paged-access index description.
         #[serde(rename = "nodePages", default, skip_serializing_if = "Option::is_none")]
         pub node_pages: Option<NodePageDefinition>,
@@ -2121,7 +2206,8 @@ pub mod cmn {
         #[serde(
             rename = "statisticsInfo",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub statistics_info: Vec<StatisticsInfo>,
         ///The store object describes the exact physical storage of a layer and enables the client to detect when multiple layers are served from the same store.
@@ -2130,14 +2216,15 @@ pub mod cmn {
         #[serde(
             rename = "textureSetDefinitions",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub texture_set_definitions: Vec<TextureSetDefinition>,
         ///Time info represents the temporal data of a time-aware layer. The time info class provides information such as date fields that store the start and end times for each feature and the total time span for the layer.
         #[serde(rename = "timeInfo", default, skip_serializing_if = "Option::is_none")]
         pub time_info: Option<TimeInfo>,
         ///The ID of the last update session in which any resource belonging to this layer has been updated.
-        pub version: String,
+        pub version: Box<str>,
     }
     ///Object to provide time stamp when the I3S service or the source of the service was created or updated.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -2170,7 +2257,7 @@ pub mod cmn {
         pub id: u32,
         ///URL - I3S Pointer reference to the material definition in this node's shared resource, from its root element. If present, used for the entire geometry.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub material: Option<String>,
+        pub material: Option<Box<str>>,
         ///UUID of the material, as defined in the shared resources bundle, to use for rendering this component.
         #[serde(
             rename = "materialID",
@@ -2182,17 +2269,19 @@ pub mod cmn {
         #[serde(
             rename = "regionID",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub region_id: Vec<u32>,
         ///URL - I3S Pointer reference to the material definition in this node's shared resource, from its root element. If present, used for the entire geometry.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub texture: Option<String>,
+        pub texture: Option<Box<str>>,
         ///Optional ID of the texture, as defined in shared resources, to use with the material to render this component.
         #[serde(
             rename = "textureID",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub texture_id: Vec<u32>,
     }
@@ -2226,18 +2315,18 @@ pub mod cmn {
         pub wkid: Option<u32>,
         ///WKT, or Well-Known Text, of the CRS. Specify either WKT or WKID of the CRS but not both.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub wkt: Option<String>,
+        pub wkt: Option<Box<str>>,
     }
     ///Describes the attribute statistics for the scene layer.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct StatisticsInfo {
         ///The URL to the statistics information. For example ./statistics/f_1
-        pub href: String,
+        pub href: Box<str>,
         ///Key indicating the resource of the statistics. For example f_1 for ./statistics/f_1
-        pub key: String,
+        pub key: Box<str>,
         ///Name of the field of the statistical information.
-        pub name: String,
+        pub name: Box<str>,
     }
     ///Contains statistics about each attribute. Statistics are useful to estimate attribute distribution and range.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -2269,7 +2358,7 @@ pub mod cmn {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub max_time_str: Option<String>,
+        pub max_time_str: Option<Box<str>>,
         ///Minimum attribute value for the entire layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub min: Option<f64>,
@@ -2279,12 +2368,13 @@ pub mod cmn {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub min_time_str: Option<String>,
+        pub min_time_str: Option<Box<str>>,
         ///An array of most frequently used values within the point cloud scene layer.
         #[serde(
             rename = "mostFrequentValues",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub most_frequent_values: Vec<Valuecount>,
         ///Representing the standard deviation.
@@ -2314,7 +2404,7 @@ pub mod cmn {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub attribute_encoding: Option<String>,
+        pub attribute_encoding: Option<Box<str>>,
         ///A common, global ArrayBufferView definition that can be used if the schema of vertex attributes and face attributes is consistent in an entire cache; this is a requirement for meshpyramids caches.
         #[serde(rename = "defaultGeometrySchema")]
         pub default_geometry_schema: DefaultGeometrySchema,
@@ -2329,7 +2419,8 @@ pub mod cmn {
         #[serde(
             rename = "defaultTextureDefinition",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub default_texture_definition: Vec<Texture>,
         ///The 2D spatial extent (xmin, ymin, xmax, ymax) of this store, in the horizontal indexCRS.
@@ -2341,27 +2432,27 @@ pub mod cmn {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub feature_encoding: Option<String>,
+        pub feature_encoding: Option<Box<str>>,
         ///Deprecated in 1.7. MIME type for the encoding used for the Geometry Resources. For example: application/octet-stream; version=1.6.
         #[serde(
             rename = "geometryEncoding",
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub geometry_encoding: Option<String>,
+        pub geometry_encoding: Option<Box<str>>,
         ///A store ID, unique across a SceneServer. Enables the client to discover which layers are part of a common store, if any.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub id: Option<String>,
+        pub id: Option<Box<str>>,
         ///The horizontal CRS used for all minimum bounding spheres (mbs) in this store. The CRS is identified by an OGC URL. Needs to be identical to the spatial reference.
         #[serde(rename = "indexCRS", default, skip_serializing_if = "Option::is_none")]
-        pub index_crs: Option<String>,
+        pub index_crs: Option<Box<str>>,
         ///Deprecated in 1.7. Information on the Indexing Scheme (QuadTree, R-Tree, Octree, ...) used.
         #[serde(
             rename = "indexingScheme",
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub indexing_scheme: Option<String>,
+        pub indexing_scheme: Option<Box<str>>,
         ///Deprecated in 1.7. Optional field to indicate the [LoD switching](lodSelection.cmn.md) mode. Possible values are: `node-switching`: A parent node is substituted for its children nodes when its lod threshold is exceeded. This implies that: parent and children are never shown at the same time. The bounding volumne of the parent has to enclose the features of all grandchildren. Nodes have a single parent, except the root node that have no parent. `none`: No switching model.
         #[serde(rename = "lodModel", default, skip_serializing_if = "Option::is_none")]
         pub lod_model: Option<LodModel>,
@@ -2374,7 +2465,7 @@ pub mod cmn {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub nid_encoding: Option<String>,
+        pub nid_encoding: Option<Box<str>>,
         ///Describes the coordinate reference frame used for storing normals. Although not required, it is recommended to re-compute the normal component of the binary geometry buffer if this property is not present. Possible values are: `east-north-up`: Normals are stored in a node local reference frame defined by the easting, northing and up directions at the MBS center. It is only valid for geographic (WGS84) vertexCRS.`earth-centered`: Normals are stored in a global earth-centered, earth-fixed ([ECEF](https://en.wikipedia.org/wiki/ECEF)) reference frame. It is only valid for geographic vertexCRS. Earth centered can be directly used for global view rendering, thus is an optimal option for meshes in non-projected geographic coordinate system. `vertex-reference-frame`: Normals are stored in the same reference frame as vertices. It is only valid for projected vertexCRS.
         #[serde(
             rename = "normalReferenceFrame",
@@ -2383,29 +2474,31 @@ pub mod cmn {
         )]
         pub normal_reference_frame: Option<NormalReferenceFrame>,
         ///Indicates which profile this scene store fulfills. {point, meshpyramid, pointcloud}
-        pub profile: String,
+        pub profile: Box<str>,
         ///Indicates the resources needed for rendering and the required order in which the client should load them. Possible values for each array string: `3dNodeIndexDocument`: JSON file describes a single index node within a store, with links to other nodes (children, sibling, and parent), links to feature data, geometry data and texture data resources, metadata such as metrics used for LoD selection, its spatial extent. [Read more](3DNodeIndexDocument.cmn.md)`SharedResource`: Shared resources are models or textures that can be shared among features within the same layer. `featureData`: The FeatureData JSON file(s) contain geographical features with a set of attributes, accessors to geometry attributes and other references to styling or materials. `Geometry`: Each geometry resource is an array of geometries. `Texture`: The texture resource for a node contains the images that are used as textures for the features stored in the node. `Attributes`: Attribute resource for node containing feature data attributes
         #[serde(
             rename = "resourcePattern",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub resource_pattern: Vec<ResourcePattern>,
         ///Relative URL to root node resource.
         #[serde(rename = "rootNode", default, skip_serializing_if = "Option::is_none")]
-        pub root_node: Option<String>,
+        pub root_node: Option<Box<str>>,
         ///Deprecated in 1.7. MIME type(s) for the encoding used for the Texture Resources.
         #[serde(
             rename = "textureEncoding",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
-        pub texture_encoding: Vec<String>,
+        pub texture_encoding: Vec<Box<str>>,
         ///Format version of this resource. Used here again if this store hasn't been served by a 3D Scene Server.
-        pub version: String,
+        pub version: Box<str>,
         ///The horizontal CRS used for all 'vertex positions' in this store. The CRS is identified by an OGC URL. Needs to be identical to the spatial reference.
         #[serde(rename = "vertexCRS", default, skip_serializing_if = "Option::is_none")]
-        pub vertex_crs: Option<String>,
+        pub vertex_crs: Option<Box<str>>,
     }
     ///The texture resource contains texture image files. Textures are stored as a binary resource within a node. I3S supports JPEG and PNG, as well as compressed texture formats S3TC, ETC2, and Basis Universal. When creating a scene layer using textures for example, a 3D Object scene layer, the appropriate texture encoding declaration needs to be provided. This is done using MIME types such as `image/jpeg` (for JPEG), `image/vnd-ms.dds` (for S3TC) and `image/ktx2` (for Basis Universal). Textures should be in RGBA format. RGBA is a three-channel RGB color model supplemented with a 4th alpha chanel. The integrated mesh and 3D object profile types support textures. The textures file is a binary resource that contains images to be used as textures for the features in the node. A single texture file contains 1 to n textures for a specific level of texture detail. It may contain a single texture or multiple individual textures. These are part of a texture atlas. Textures are expected in the following formats: |File name convention|Format| |-----|------------| |0_0.jpg|JPEG| |0.bin|PNG| |0_0_1.bin.dds|S3TC| | 0_0_2.ktx|ETC2| |1.ktx2|Basis Universal| The texture resource must include either a JPEG or PNG texture file. In I3S version 1.6, the size property will give you the width of a texture. In version 1.7, the texelCountHint can be used to determine the cost of loading a node as well as for use in texel-resolution based LoD switching. (A texel, texture element, or texture pixel is the fundamental unit of a texture map.) Compressed textures(S3TC, ETC, Basis Universal) may contain mipmaps. Mipmaps (also MIP maps) or pyramids are pre-calculated, optimized sequences of images, each of which is a progressively lower resolution representation of the same image. The height and width of each image, or level, in the mipmap is a power of two smaller than the previous level. When compressing textures with mipmaps, the texture dimensions must of size 2n and the smallest size allowed is 4x4, where n = 2. The number and volume of textures tends to be the limiting display factor, especially for web and mobile clients. The format used depends on the use case. For example, a client might choose to consume JPEG in low bandwidth conditions since JPEG encoded files are efficient to transmit and widely used. Clients constrained for memory or computing resources might choose to directly consume compressed textures for performance reasons.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -2418,13 +2511,21 @@ pub mod cmn {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub channels: Option<TextureChannels>,
         ///MIMEtype[1..*] The encoding/content type that is used by all images in this map
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
-        pub encoding: Vec<String>,
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
+        pub encoding: Vec<Box<str>>,
         ///The name of the UV set to be used as texture coordinates.
         #[serde(rename = "uvSet", default, skip_serializing_if = "Option::is_none")]
-        pub uv_set: Option<String>,
+        pub uv_set: Option<Box<str>>,
         ///Possible values for each array string: `none`repeat`mirror`
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub wrap: Vec<TextureWrap>,
     }
     ///A texture is a set of images, with some parameters specific to the texture/uv mapping to geometries. Part of [sharedResource](sharedResource.cmn.md) that is deprecated with 1.7.
@@ -2445,15 +2546,23 @@ pub mod cmn {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub channels: Option<TextureDefinitionInfoChannels>,
         ///MIMEtype - The encoding/content type that is used by all images in this map
-        pub encoding: Vec<String>,
+        pub encoding: Vec<Box<str>>,
         ///An image is a binary resource, containing a single raster that can be used to texture a feature or symbol.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub images: Vec<Image>,
         ///The name of the UV set to be used as texture coordinates.
         #[serde(rename = "uvSet", default, skip_serializing_if = "Option::is_none")]
-        pub uv_set: Option<String>,
+        pub uv_set: Option<Box<str>>,
         ///UV wrapping modes, from {none, repeat, mirror}.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub wrap: Vec<TextureDefinitionInfoWrap>,
     }
     ///textureSetDefinition
@@ -2473,7 +2582,7 @@ pub mod cmn {
         ///The texture format. Possible values are: `jpg`: JPEG compression. No mipmaps. Please note that alpha channel may have been added after the JPEG stream. This alpha channel is alwasy 8bit and zlib compressed. Last 4 bytes of the entire stream are the 32 bit offset to the beginning of the alpha stream (little-endian).`png`: PNG format, no mipmaps`dds`: The DDS header will specify the type of compression and number of mipmaps. **WARNING:** Only DXT1 (no alpha) and DXT5 (alpha channel) are supported. `ktx-etc2`: Khronos group container for ETC2 compressed texture. Mipmap may be available. Note: KTX (Khronos Texture) is a lightweight file format for OpenGL® textures, designed around how textures are loaded in OpenGL.`ktx2`: Basis Universal Supercompressed GPU Texture.
         pub format: Format,
         ///The location ID for the resource (last segment of the URL path). Must be `"0"` for jpg/png, `"0_0_1"` for DDS, `"0_0_2"` for KTX, and `"1"` for KTX2.
-        pub name: String,
+        pub name: Box<str>,
     }
     ///Time info represents the temporal data of a time-aware layer. The time info provides information such as date fields storing the start and end times for each feature. The statistic of the time fields defines the time extent as a period of time with a definite start and end time. The time encoding is [ECMA ISO8601](ECMA_ISO8601.md). The date time values can be UTC time or local time with offset to UTC. Temporal data is data that represents a state in time. You can to step through periods of time to reveal patterns and trends in your data.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -2485,14 +2594,14 @@ pub mod cmn {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub end_time_field: Option<String>,
+        pub end_time_field: Option<Box<str>>,
         ///The name of the field that contains the start time information.
         #[serde(
             rename = "startTimeField",
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub start_time_field: Option<String>,
+        pub start_time_field: Option<Box<str>>,
     }
     ///Value for attributeByteCount, attributeValues and objectIds.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -2500,7 +2609,7 @@ pub mod cmn {
     pub struct Value {
         ///Encoding method for the value.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub encoding: Option<String>,
+        pub encoding: Option<Box<str>>,
         ///Encoding method for the time value. DateTime attribute string formatting must comply with [ECMA-ISO 8601](ECMA_ISO8601.md). Must be: `ECMA_ISO8601`
         #[serde(
             rename = "timeEncoding",
@@ -2510,7 +2619,7 @@ pub mod cmn {
         pub time_encoding: Option<TimeEncoding>,
         ///Defines the value type.
         #[serde(rename = "valueType")]
-        pub value_type: String,
+        pub value_type: Box<str>,
         ///Number of values per element.
         #[serde(
             rename = "valuesPerElement",
@@ -2556,7 +2665,7 @@ pub mod cmn {
         pub topology: Option<VestedGeometryParamsTopology>,
         ///The primitive type of the geometry defined through a vestedGeometryParams object. One of {*triangles*, lines, points}.
         #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
-        pub r#type: Option<String>,
+        pub r#type: Option<Box<str>>,
         ///A list of Vertex Attributes, such as Position, Normals, UV coordinates, and their definitions. While there are standard keywords such as position, uv0..uv9, normal and color, this is an open, extendable list.
         #[serde(
             rename = "vertexAttributes",
@@ -2708,10 +2817,10 @@ pub mod bld {
     pub struct AttributeStatisticsBld {
         ///Name of the field.
         #[serde(rename = "fieldName")]
-        pub field_name: String,
+        pub field_name: Box<str>,
         ///Label of the field name. If label is empty, the label and fieldName are identical.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub label: Option<String>,
+        pub label: Option<Box<str>>,
         ///Maximum value. Numeric attributes only.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub max: Option<f64>,
@@ -2725,7 +2834,8 @@ pub mod bld {
         #[serde(
             rename = "mostFrequentValues",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub most_frequent_values: Vec<u32>,
         ///List of sublayers where this attribute may be found.
@@ -2752,7 +2862,7 @@ pub mod bld {
     #[serde(rename_all = "camelCase")]
     pub struct FilterBld {
         ///Description of the filter.
-        pub description: String,
+        pub description: Box<str>,
         ///Authoring Info used to generate user interface for authoring clients.
         #[serde(
             rename = "filterAuthoringInfo",
@@ -2764,7 +2874,7 @@ pub mod bld {
         #[serde(rename = "filterBlocks")]
         pub filter_blocks: Vec<FilterBlockBld>,
         ///Global ID as unique identifier of the filter.
-        pub id: String,
+        pub id: Box<str>,
         ///Indicates if a filter is the default filter. Clients use the default filter to show the current state of a building. For example, if 'created' is the default filter, all elements in the 'created' phases are drawn, while elements in the 'demolished' phases are invisible. The default filter is not shown in the UI and does not have Authoring Info. (Can build specific UI for this filter)
         #[serde(
             rename = "isDefaultFilter",
@@ -2776,7 +2886,7 @@ pub mod bld {
         #[serde(rename = "isVisible", default, skip_serializing_if = "Option::is_none")]
         pub is_visible: Option<bool>,
         ///Name of the filter.
-        pub name: String,
+        pub name: Box<str>,
     }
     ///The filter authoring info object contains metadata about the authoring process for creating a filter block object. This allows the authoring client to save specific, overridable settings. The next time it is accessed via an authoring client, their selections are remembered. Non-authoring clients can ignore it.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -2792,12 +2902,12 @@ pub mod bld {
     pub struct FilterBlockBld {
         ///Filter query expression for a building scene layer.
         #[serde(rename = "filterExpression")]
-        pub filter_expression: String,
+        pub filter_expression: Box<str>,
         ///Filter mode defines how features are drawn. For example, the filter mode of a filter can be solid or wire frame.
         #[serde(rename = "filterMode")]
         pub filter_mode: FilterModeBld,
         ///Title of the filter block.
-        pub title: String,
+        pub title: Box<str>,
     }
     ///Filter mode represents the way elements draw when participating in a filter block.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -2828,10 +2938,10 @@ pub mod bld {
     pub struct FilterTypeBld {
         ///Represents the filter type name. Name is a unique identifier.
         #[serde(rename = "filterType")]
-        pub filter_type: String,
+        pub filter_type: Box<str>,
         ///Array of filter values. Filter values are the attributes that can be stored for individual fields in a layer.
         #[serde(rename = "filterValues")]
-        pub filter_values: Vec<String>,
+        pub filter_values: Vec<Box<str>>,
     }
     ///#### Building scene layer structure A building scene layer represents a 3D BIM model as a single layer composed of sublayers. The 3D BIM model can be any man made structure organized in discipline layers (groups) such as Architectural, Electrical, Infrastructure, Mechanical, Piping or Structural and category layers representing content such as walls or windows. A building scene layer may contain an overview including only exterior feature in addition to the full model. The concept of a group (i.e. `layerType='group'`) has been added to organized sublayers into a nested tree structure that can be reflected in the table of content of 3D Clients. If a building scene layer does not contain an overview, the structure should not include an overview or full model, only the disciplines directly. Please note that: - Groups and sublayers may be referenced **once** (e.g. a sublayer may not be in multiple groups). - Groups and sublayers do not have any resource associated with them. - Sublayer resources are located in the sublayers of the building scene layer: layers/{bim_layer_id}/sublayers/{sub_layer_id}/.... Since a building scene layer may have an associated featureService, care must be taken to match building scene layer sublayer IDs with the service. In practice, if the building scene layer has n sublayers numbered [0,n-1] they need to match the featureService sublayers IDs. Any group layers ID in the scene layer need to be greater. ` +-- layers | +-- 10 (3dSceneLayer.json for layer10, layerType ='building' ) | | +-- statistics | | | +-- summary.json | | +-- sublayers | | | +--0 (3dSceneLayer.json for layer0, layerType='3DObject') | | | | +--nodes | | | | | +--0 | | | | | | +--3dNodeIndexDocument.json | | | | | | +--geometries (...) | | | | | | +--attributes (...) | | | | | +--1 | | | | | | +--3dNodeIndexDocument.json | | | | | | +--geometries (...) | | | | | | +--attributes (...) | | | | | +--(...) | | | | +--statistics | | | +--1 (3dSceneLayer.json for layer1, layerType='3DObject') | | | | +-- (...) | | | +--(... , layerType='3DObject') ` #### Building scene layer service: The service definition is identical to other scene layer service definitions and will list a single layer (the BIM layer) e.g: ` js { "serviceName" : "Esri Campus", "serviceVersion" : "1.8" "supportedBindings" : "REST" "layers": [ { "id" : 10, "layerType" : "Building" // ... // building scene layer JSON definitions (see example below) // ... } ] } ` **Edits** - Group/layer names **must be unique**. - Capabilities that have been removed. - `sublayers.href` and `groups.href` have been removed in favor of IDs. - Removed `fullExtent` from `group` object. - Added back `modelName`. - Added statistics.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -2843,12 +2953,16 @@ pub mod bld {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub active_filter_id: Option<String>,
+        pub active_filter_id: Option<Box<str>>,
         ///Alias of the layer name. Can be empty if alias and name are identical.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub alias: Option<String>,
+        pub alias: Option<Box<str>>,
         ///Capabilities supported by building scene layer. Overwrites any capabilities on sublayers. Possible values for each array string: `View`: View is supported. `Query`: Query is supported. `Edit`: Edit is defined. `Extract`: Extract is defined.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub capabilities: Vec<Capabilities>,
         ///Copyright information to be displayed.
         #[serde(
@@ -2856,12 +2970,16 @@ pub mod bld {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub copyright_text: Option<String>,
+        pub copyright_text: Option<Box<str>>,
         ///Description for the layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub description: Option<String>,
+        pub description: Option<Box<str>>,
         ///Array of filters defined for the building scene layer.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub filters: Vec<FilterBld>,
         ///3d extent. If `layer.fullExtent.spatialReference` is specified, it **must** match `layer.spatialReference`.
         #[serde(rename = "fullExtent")]
@@ -2879,7 +2997,7 @@ pub mod bld {
         #[serde(rename = "layerType")]
         pub layer_type: LayerBldLayerType,
         ///Layer name.
-        pub name: String,
+        pub name: Box<str>,
         ///The spatialReference of the layer including the vertical coordinate system. WKT is included to support custom spatial references.
         #[serde(rename = "spatialReference")]
         pub spatial_reference: SpatialReference,
@@ -2889,11 +3007,11 @@ pub mod bld {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub statistics_h_ref: Option<String>,
+        pub statistics_h_ref: Option<Box<str>>,
         ///List of sublayers or group of sublayers.
         pub sublayers: Vec<SublayerBld>,
         ///Version of building scene layer.
-        pub version: String,
+        pub version: Box<str>,
     }
     ///Statistics for all building scene layer sublayers. Captures statistical information for each field in the building scene layer and the sublayers containing this fields.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -2908,7 +3026,7 @@ pub mod bld {
     pub struct SublayerBld {
         ///Alias of the layer name. Can be empty if alias and name are identical.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub alias: Option<String>,
+        pub alias: Option<Box<str>>,
         ///Semantics for work discipline groups which can be used to refine the user experience. Possible values are: `Mechanical`Architectural`Piping`Electrical`Structural`Infrastructure`
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub discipline: Option<Discipline>,
@@ -2922,11 +3040,15 @@ pub mod bld {
         pub layer_type: SublayerBldLayerType,
         ///A fixed string of sublayer information. Used by client applications to define specific behavior for the modelName. See [list of defined modelNames](subLayerModelName.md) for sublayers.
         #[serde(rename = "modelName", default, skip_serializing_if = "Option::is_none")]
-        pub model_name: Option<String>,
+        pub model_name: Option<Box<str>>,
         ///Layer name. **Must be unique** per building scene layer.
-        pub name: String,
+        pub name: Box<str>,
         ///Sublayers contained in this layer.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub sublayers: Vec<SublayerBld>,
         ///Visibility of the sublayer. Default is `true`.
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -3075,12 +3197,13 @@ pub mod psl {
         pub z_factor: Option<f64>,
         ///The display alias to be used for this layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub alias: Option<String>,
+        pub alias: Option<Box<str>>,
         ///Provides the schema and layout used for storing attribute content in binary format in I3S.
         #[serde(
             rename = "attributeStorageInfo",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub attribute_storage_info: Vec<AttributeStorageInfo>,
         ///Indicates if any styling information represented as drawingInfo is captured as part of the binary mesh representation. This helps provide optimal client-side access. Currently the color component of the drawingInfo is supported.
@@ -3098,10 +3221,10 @@ pub mod psl {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub copyright_text: Option<String>,
+        pub copyright_text: Option<Box<str>>,
         ///Description string for this layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub description: Option<String>,
+        pub description: Option<Box<str>>,
         ///Indicates if client application will show the popup information. Default is FALSE.
         #[serde(
             rename = "disablePopup",
@@ -3124,7 +3247,11 @@ pub mod psl {
         )]
         pub elevation_info: Option<ElevationInfo>,
         ///A collection of objects that describe each attribute field regarding its field name, datatype, and a user friendly name {name,type,alias}. It includes all fields that are included as part of the scene layer as derived from a source input feature layer.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub fields: Vec<Field>,
         ///3D extent. If `layer.fullExtent.spatialReference` is specified, it must match `layer.spatialReference`.
         #[serde(
@@ -3134,8 +3261,13 @@ pub mod psl {
         )]
         pub full_extent: Option<FullExtent>,
         ///Define the layouts of point geometry and its attributes.
-        #[serde(rename = "geometryDefinition")]
-        pub geometry_definition: GeometryDefinitionPsl,
+        #[serde(
+            rename = "geometryDefinitions",
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
+        pub geometry_definitions: Vec<GeometryDefinitionPsl>,
         ///Enables consuming clients to quickly determine whether this layer is compatible (with respect to its horizontal and vertical coordinate system) with existing content.
         #[serde(
             rename = "heightModelInfo",
@@ -3145,7 +3277,7 @@ pub mod psl {
         pub height_model_info: Option<HeightModelInfo>,
         ///The relative URL to the 3DSceneLayerResource. Only present as part of the SceneServiceInfo resource.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub href: Option<String>,
+        pub href: Option<Box<str>>,
         ///Unique numeric ID of the layer.
         pub id: u32,
         ///The user-visible layer type. Must be: `Point`
@@ -3153,7 +3285,7 @@ pub mod psl {
         pub layer_type: LayerType,
         ///The name of this layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub name: Option<String>,
+        pub name: Option<Box<str>>,
         ///The paged-access index description. For legacy purposes, this property is called pointNodePages in [Point Scene Layers](3DSceneLayer.psl.md).
         #[serde(
             rename = "pointNodePages",
@@ -3185,7 +3317,8 @@ pub mod psl {
         #[serde(
             rename = "statisticsInfo",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub statistics_info: Vec<StatisticsInfo>,
         ///The store object describes the exact physical storage of a layer and enables the client to detect when multiple layers are served from the same store.
@@ -3194,7 +3327,7 @@ pub mod psl {
         #[serde(rename = "timeInfo", default, skip_serializing_if = "Option::is_none")]
         pub time_info: Option<TimeInfo>,
         ///The ID of the last update session in which any resource belonging to this layer has been updated.
-        pub version: String,
+        pub version: Box<str>,
     }
     ///The store object describes the exact physical storage of a layer and enables the client to detect when multiple layers are served from the same store. Storing multiple layers in a single store - and thus having them share resources - enables efficient serving of many layers of the same content type, but with different attribute schemas or different symbology applied.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -3206,7 +3339,7 @@ pub mod psl {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub attribute_encoding: Option<String>,
+        pub attribute_encoding: Option<Box<str>>,
         ///A common, global ArrayBufferView definition that can be used if the schema of vertex attributes and face attributes is consistent in an entire cache; this is a requirement for meshpyramids caches.
         #[serde(
             rename = "defaultGeometrySchema",
@@ -3225,7 +3358,8 @@ pub mod psl {
         #[serde(
             rename = "defaultTextureDefinition",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub default_texture_definition: Vec<Texture>,
         ///The 2D spatial extent (xmin, ymin, xmax, ymax) of this store, in the horizontal indexCRS.
@@ -3237,27 +3371,27 @@ pub mod psl {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub feature_encoding: Option<String>,
+        pub feature_encoding: Option<Box<str>>,
         ///MIME type for the encoding used for the Geometry Resources. For example: application/octet-stream; version=1.6.
         #[serde(
             rename = "geometryEncoding",
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub geometry_encoding: Option<String>,
+        pub geometry_encoding: Option<Box<str>>,
         ///A store ID, unique across a SceneServer. Enables the client to discover which layers are part of a common store, if any.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub id: Option<String>,
+        pub id: Option<Box<str>>,
         ///The horizontal CRS used for all minimum bounding spheres (mbs) in this store. The CRS is identified by an OGC URL. Needs to be identical to the spatial reference.
         #[serde(rename = "indexCRS", default, skip_serializing_if = "Option::is_none")]
-        pub index_crs: Option<String>,
+        pub index_crs: Option<Box<str>>,
         ///Information on the Indexing Scheme (QuadTree, R-Tree, Octree, ...) used.
         #[serde(
             rename = "indexingScheme",
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub indexing_scheme: Option<String>,
+        pub indexing_scheme: Option<Box<str>>,
         ///Optional field to indicate the [LoD switching](lodSelection.cmn.md) mode. Possible values are: `node-switching`: A parent node is substituted for its children nodes when its lod threshold is exceeded. This implies that: parent and children are never shown at the same time. The bounding volumne of the parent has to enclose the features of all grandchildren. Nodes have a single parent, except the root node that have no parent. `none`: No switching model.
         #[serde(rename = "lodModel", default, skip_serializing_if = "Option::is_none")]
         pub lod_model: Option<LodModel>,
@@ -3270,7 +3404,7 @@ pub mod psl {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub nid_encoding: Option<String>,
+        pub nid_encoding: Option<Box<str>>,
         ///Describes the coordinate reference frame used for storing normals. Although not required, it is recommended to re-compute the normal component of the binary geometry buffer if this property is not present. Possible values are: `east-north-up`: Normals are stored in a node local reference frame defined by the easting, northing and up directions at the MBS center. It is only valid for geographic (WGS84) vertexCRS.`earth-centered`: Normals are stored in a global earth-centered, earth-fixed ([ECEF](https://en.wikipedia.org/wiki/ECEF)) reference frame. It is only valid for geographic vertexCRS. Earth centered can be directly used for global view rendering, thus is an optimal option for meshes in non-projected geographic coordinate system. `vertex-reference-frame`: Normals are stored in the same reference frame as vertices. It is only valid for projected vertexCRS.
         #[serde(
             rename = "normalReferenceFrame",
@@ -3279,29 +3413,31 @@ pub mod psl {
         )]
         pub normal_reference_frame: Option<NormalReferenceFrame>,
         ///Indicates which profile this scene store fulfills. {point, meshpyramid, pointcloud}
-        pub profile: String,
+        pub profile: Box<str>,
         ///Indicates the resources needed for rendering and the required order in which the client should load them. Possible values for each array string: `3dNodeIndexDocument`: JSON file describes a single index node within a store, with links to other nodes (children, sibling, and parent), links to feature data, geometry data and texture data resources, metadata such as metrics used for LoD selection, its spatial extent. [Read more](3DNodeIndexDocument.cmn.md)`SharedResource`: Shared resources are models or textures that can be shared among features within the same layer. `featureData`: The FeatureData JSON file(s) contain geographical features with a set of attributes, accessors to geometry attributes and other references to styling or materials. `Geometry`: Each geometry resource is an array of geometries. `Texture`: The texture resource for a node contains the images that are used as textures for the features stored in the node. `Attributes`: Attribute resource for node containing feature data attributes
         #[serde(
             rename = "resourcePattern",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub resource_pattern: Vec<ResourcePattern>,
         ///Relative URL to root node resource.
         #[serde(rename = "rootNode", default, skip_serializing_if = "Option::is_none")]
-        pub root_node: Option<String>,
+        pub root_node: Option<Box<str>>,
         ///MIME type(s) for the encoding used for the Texture Resources.
         #[serde(
             rename = "textureEncoding",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
-        pub texture_encoding: Vec<String>,
+        pub texture_encoding: Vec<Box<str>>,
         ///Format version of this resource. Used here again if this store hasn't been served by a 3D Scene Server.
-        pub version: String,
+        pub version: Box<str>,
         ///The horizontal CRS used for all 'vertex positions' in this store. The CRS is identified by an OGC URL. Needs to be identical to the spatial reference.
         #[serde(rename = "vertexCRS", default, skip_serializing_if = "Option::is_none")]
-        pub vertex_crs: Option<String>,
+        pub vertex_crs: Option<Box<str>>,
     }
 }
 pub mod pcsl {
@@ -3473,11 +3609,15 @@ pub mod pcsl {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub encoding: Option<AttributeInfoPcslEncoding>,
         ///Represents the attribute key. Key is the same as `id' used in the resource URL to fetch the binary buffers.
-        pub key: String,
+        pub key: Box<str>,
         ///The attribute name. Must be unique for this layer.
-        pub name: String,
+        pub name: Box<str>,
         ///Mapping between attribute to point. Only 1-to-1 is currently supported. Possible values for each array string: `attributeValues`
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub ordering: Vec<AttributeInfoPcslOrdering>,
     }
     ///Example for LiDAR data: | Bit Number | Label | description | |:--:|:--:|:--| | 0| Synthetic | If set then this point was created by a technique other than LIDAR collection such as digitized from a photogrammetric stereo model or by traversing a waveform| | 1| Key-Point |If set, this point is considered to be a model key-point and thus generally should not be withheld in a thinning algorithm.| |2| Withheld |If set, this point should not be included in processing (synonymous with Deleted).| |3| Overlap | If set, this point is within the overlap region of two or more swaths or takes. Setting this bit is not mandatory (unless, of course, it is mandated by a particular delivery specification) but allows Classification of overlap points to be preserved.| |4 | Scan Channel 0 | Scanner Channel is used to indicate the channel (scanner head) of a multichannel system. Channel 0 is used for single scanner systems | |5 | Scan Channel 1 | Scanner Channel is used to indicate the channel (scanner head) of a multichannel system.| |6| Scan Direction |The Scan Direction Flag denotes the direction at which the scanner mirror was traveling at the time of the output pulse. A bit value of 1 is a positive scan direction, and a bit value of 0 is a negative scan direction (where positive scan direction is a scan moving from the left side of the in-track direction to the right side and negative the opposite). | |7| Edge of flight line | The Edge of Flight Line data bit has a value of 1 only when the point is at the end of a scan. It is the last point on a given scan line before it changes direction or the mirror facet changes. Note that this field has no meaning for 360&deg; Field of View scanners (such as Mobile LIDAR scanners) and should not be set |
@@ -3488,7 +3628,7 @@ pub mod pcsl {
         #[serde(rename = "bitNumber")]
         pub bit_number: u32,
         ///Label string
-        pub label: String,
+        pub label: Box<str>,
     }
     ///Attribute description as field.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -3500,10 +3640,18 @@ pub mod pcsl {
         #[serde(rename = "geometryType")]
         pub geometry_type: GeometryType,
         ///The header in binary buffers. Currently not supported for point cloud scene layer.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub header: Vec<serde_json::Value>,
         ///Currently the geometry contains XYZ only, so vertex attribute must only list 'position'. Possible values for each array string: `position`: vertex coordinates
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub ordering: Vec<DefaultGeometrySchemaPcslOrdering>,
         ///This property is currently **ignored* for point cloud scene layer since it only contains geometry position without vertex attributes. Must be: `PerAttributeArray`
         pub topology: Topology,
@@ -3523,10 +3671,10 @@ pub mod pcsl {
     #[serde(rename_all = "camelCase")]
     pub struct ElevationInfoPcsl {
         ///The mode of the elevation. Point cloud scene layer supports absoluteHeight.
-        pub mode: String,
+        pub mode: Box<str>,
         ///The offset the point cloud scene layer. The elevation unit is the coordinate systems units.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub offset: Option<u32>,
+        pub offset: Option<f64>,
     }
     ///The histogram of the point cloud scene layer. The bin size may be computed as (max-min)/bin count. Please note that stats.histo.min/max is not equivalent to stats.min/max since values smaller than stats.histo.min and greater than stats.histo.max are counted in the first and last bin respectively. The values stats.min and stats.max may be conservative estimates. The bins would be distributed as follows: `(-inf, stats.min + bin_size], (stats.min + bin_size, stats.min + 2 * bin_size], ... , (stats.min + (bin_count - 1) * bin_size], (stats.min + (bin_count - 1) * bin_size, +inf)`
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -3551,7 +3699,7 @@ pub mod pcsl {
         )]
         pub bounding_volume_type: Option<BoundingVolumeType>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub href: Option<String>,
+        pub href: Option<Box<str>>,
         ///Defines how `node.lodThreshold` should be interpretedMust be: `density-threshold`: nodes[i].lodThreshold will represent an 'effective' 2D area for the node. This estimation works best when the point cloud scene layer represents a surface and is not volumetric. World space density is defined as Dw = node.pointCount / node.effectiveArea. Ds is Dw converted to screen space. Client would switch LOD when Ds is less/greater than a threshold defined by the client. For example, 0.1 point per pixel square. Note for point cloud scene layer creation: If each point footprint is assumed to be identical (say 0.1x0.1 unit), then the lodThreshold may be computed as number_of_points * point_footprint for a leaf node and sum( children[i].effective_area) for inner nodes.
         #[serde(
             rename = "lodSelectionMetricType",
@@ -3571,7 +3719,7 @@ pub mod pcsl {
     #[serde(rename_all = "camelCase")]
     pub struct LabelPcsl {
         ///Label string
-        pub label: String,
+        pub label: Box<str>,
         ///Value
         pub value: f64,
     }
@@ -3583,11 +3731,16 @@ pub mod pcsl {
         #[serde(
             rename = "bitfieldLabels",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub bitfield_labels: Vec<BitfieldlabelPcsl>,
         ///Array of string label/value pairs. Used when attribute represents a set of values. For example, ClassCode.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub labels: Vec<LabelPcsl>,
     }
     ///Point Cloud Scene Layer Definition
@@ -3596,12 +3749,16 @@ pub mod pcsl {
     pub struct LayerPcsl {
         ///Represents the alias layer name.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub alias: Option<String>,
+        pub alias: Option<Box<str>>,
         ///List of attributes included for this layer.
         #[serde(rename = "attributeStorageInfo")]
         pub attribute_storage_info: Vec<AttributeInfoPcsl>,
         ///Capabilities supported by this layer. Possible values for each array string: `View`: View is supported. `Query`: Query is supported. `Extract`: Extract is defined.
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub capabilities: Vec<Capabilities>,
         ///Copyright information to be displayed with this layer.
         #[serde(
@@ -3609,10 +3766,10 @@ pub mod pcsl {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub copyright_text: Option<String>,
+        pub copyright_text: Option<Box<str>>,
         ///Description for the layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub desc: Option<String>,
+        pub desc: Option<Box<str>>,
         ///An object containing drawing information.
         #[serde(
             rename = "drawingInfo",
@@ -3627,7 +3784,11 @@ pub mod pcsl {
             skip_serializing_if = "Option::is_none"
         )]
         pub elevation_info: Option<ElevationInfoPcsl>,
-        #[serde(default, skip_serializing_if = "is_empty_collection")]
+        #[serde(
+            default,
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
+        )]
         pub fields: Vec<Field>,
         ///An object containing the vertical coordinate system information.
         #[serde(
@@ -3642,7 +3803,7 @@ pub mod pcsl {
         #[serde(rename = "layerType")]
         pub layer_type: LayerType,
         ///Represents the layer name.
-        pub name: String,
+        pub name: Box<str>,
         ///Object to provide time stamp when the I3S service or the source of the service was created or updated.
         #[serde(
             rename = "serviceUpdateTimeStamp",
@@ -3703,7 +3864,7 @@ pub mod pcsl {
     pub struct StatisticsPcsl {
         ///Attribute name. Must match the name specified for this attribute in `layer.attributeStorageInfo`
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub attribute: Option<String>,
+        pub attribute: Option<Box<str>>,
         ///The statistics document may contain labeling information for the attribute values.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub labels: Option<LabelsPcsl>,
@@ -3731,7 +3892,8 @@ pub mod pcsl {
         #[serde(
             rename = "mostFrequentValues",
             default,
-            skip_serializing_if = "is_empty_collection"
+            skip_serializing_if = "is_empty_collection",
+            deserialize_with = "deserialize_null_default"
         )]
         pub most_frequent_values: Vec<ValuecountPcsl>,
         ///Representing the standard deviation.
@@ -3754,7 +3916,7 @@ pub mod pcsl {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub attribute_encoding: Option<String>,
+        pub attribute_encoding: Option<Box<str>>,
         ///Attribute description as field.
         #[serde(rename = "defaultGeometrySchema")]
         pub default_geometry_schema: DefaultGeometrySchemaPcsl,
@@ -3766,16 +3928,16 @@ pub mod pcsl {
             default,
             skip_serializing_if = "Option::is_none"
         )]
-        pub geometry_encoding: Option<String>,
+        pub geometry_encoding: Option<Box<str>>,
         ///Id for the store. Not currently used by the point cloud scene layer.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        pub id: Option<String>,
+        pub id: Option<Box<str>>,
         ///Describes the index (i.e. bounding volume tree) of the layer.
         pub index: IndexPcsl,
         ///Defines the profile type of the scene layer as point cloud scene layer. Must be: `PointCloud`
         pub profile: Profile,
         ///Point cloud scene layer store version.
-        pub version: String,
+        pub version: Box<str>,
     }
     ///A scalar or vector value.
     #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
