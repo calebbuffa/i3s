@@ -1104,7 +1104,7 @@ pub mod cmn {
         ///The name of the Feature Class this feature belongs to.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         pub layer: Option<Box<str>>,
-        ///An array of six doubles, corresponding to xmin, ymin, zmin, xmax, ymax and zmax of the minimum bounding box of the feature, expressed in the vertexCRS, without offset. The mbb can be used with the Feature’s Transform to provide a LOD0 representation without loading the GeometryAttributes.
+        ///An array of six doubles, corresponding to xmin, ymin, zmin, xmax, ymax and zmax of the minimum bounding box of the feature, expressed in the vertexCRS, without offset. The mbb can be used with the Feature's Transform to provide a LOD0 representation without loading the GeometryAttributes.
         #[serde(default)]
         pub mbb: [f64; 6],
         ///An array of three doubles, providing an optional, 'semantic' pivot offset that can be used to e.g. correctly drape tree symbols.

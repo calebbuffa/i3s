@@ -2,7 +2,7 @@
 //!
 //! I3S has two geometry layouts, and a compliant client must handle both:
 //!
-//! * **1.7+ `geometryBuffer`** — the layer's `geometryDefinitions` describe
+//! * **1.7+ `geometryBuffer`** - the layer's `geometryDefinitions` describe
 //!   the binary layout declaratively. Attributes appear in a **fixed order**
 //!   that the specification pins down so that parsing needs no lookup:
 //!
@@ -19,7 +19,7 @@
 //!   `component * sizeof(type) * count`, where `count` is the vertex count for
 //!   per-vertex bindings and the feature count for per-feature bindings.
 //!
-//! * **1.6 legacy `store.defaultGeometrySchema`** — the layout is described by
+//! * **1.6 legacy `store.defaultGeometrySchema`** - the layout is described by
 //!   a `header` list, an `ordering` list for vertex attributes and a
 //!   `featureAttributeOrder` list for per-feature attributes. The vertex and
 //!   feature counts are read from the header rather than supplied by the
@@ -40,7 +40,7 @@
 //! # Draco
 //!
 //! A buffer carrying `compressedAttributes` is Draco-encoded and cannot be
-//! decoded here — Draco is a separate codec and pulling it in would contradict
+//! decoded here - Draco is a separate codec and pulling it in would contradict
 //! this crate's dependency-free goal. Such buffers are reported as
 //! [`GeometryError::Compressed`] so callers can route them to a Draco decoder;
 //! [`select_geometry_buffer`](crate::select_geometry_buffer) can be told to
@@ -94,6 +94,13 @@ pub enum GeometryError {
     /// A legacy header lacked `vertexCount`, so no block size can be derived.
     #[error("legacy geometry header has no `vertexCount` property")]
     MissingVertexCount,
+
+    /// An edited geometry did not match its declared buffer layout.
+    #[error("geometry attribute `{attribute}` does not match the declared layout")]
+    LayoutMismatch {
+        /// The declared attribute that failed validation.
+        attribute: &'static str,
+    },
 }
 
 impl From<UnexpectedEndOfData> for GeometryError {
@@ -181,7 +188,7 @@ impl GeometryValues {
 /// A fully decoded geometry buffer.
 ///
 /// Every field is `None` when the corresponding attribute was absent from the
-/// declared layout — I3S omits absent attributes entirely rather than storing
+/// declared layout - I3S omits absent attributes entirely rather than storing
 /// a zeroed block.
 #[derive(Debug, Clone, Default, PartialEq)]
 #[non_exhaustive]
@@ -215,7 +222,7 @@ pub struct Geometry {
 
 /// How many vertices and features a 1.7+ buffer contains.
 ///
-/// The 1.7+ `geometryBuffer` layout is purely declarative — it says how wide
+/// The 1.7+ `geometryBuffer` layout is purely declarative - it says how wide
 /// each element is but not how many there are. Those counts live in the node
 /// page (`mesh.geometry.vertexCount` / `featureCount`), so the caller supplies
 /// them.
@@ -248,9 +255,9 @@ struct Layout {
 /// Every scalar width I3S geometry can store.
 ///
 /// The schema gives each attribute its own type enum (`GeometryPositionType`,
-/// `GeometryColorType`, …), each listing only the widths that attribute
+/// `GeometryColorType`, and so on), each listing only the widths that attribute
 /// permits. None of them covers the full set, so decoding needs one internal
-/// enum that does — crucially including `UInt32` and `UInt64`, which
+/// enum that does - crucially including `UInt32` and `UInt64`, which
 /// `faceRange` and `featureId` use but `GeometryAttributeValueType` omits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ValueType {
@@ -379,12 +386,12 @@ fn read_n(
 ///
 /// Returns [`GeometryError::Compressed`] for a Draco buffer,
 /// [`GeometryError::UnexpectedEnd`] if the payload is shorter than the
-/// declared layout, and [`GeometryError::TrailingBytes`] if it is longer —
+/// declared layout, and [`GeometryError::TrailingBytes`] if it is longer -
 /// the latter signals that the layout and payload disagree, which would make
 /// any decoded values untrustworthy.
 ///
 /// ```
-/// # use i3s::{decode_geometry, GeometryCounts, GeometryValues};
+/// # use i3s::{GeometryCounts, GeometryDescriptor, ResourceCodec, UncompressedGeometryCodec};
 /// # use i3s::cmn::{GeometryBuffer, GeometryPosition, GeometryPositionType};
 /// let definition = GeometryBuffer {
 ///     position: Some(GeometryPosition {
@@ -398,7 +405,10 @@ fn read_n(
 /// for v in [1.0f32, 2.0, 3.0] {
 ///     bytes.extend_from_slice(&v.to_le_bytes());
 /// }
-/// let geometry = decode_geometry(&definition, &bytes, GeometryCounts::vertices(1)).unwrap();
+/// let geometry = UncompressedGeometryCodec.decode(
+///     &bytes,
+///     &GeometryDescriptor { buffer: definition, counts: GeometryCounts::vertices(1) },
+/// ).unwrap();
 /// assert_eq!(geometry.position.unwrap().as_f32(), Some(&[1.0, 2.0, 3.0][..]));
 /// ```
 pub fn decode_geometry(
@@ -460,7 +470,7 @@ pub fn decode_geometry(
 /// `definition.offset` zero bytes so that the result round-trips.
 ///
 /// ```
-/// # use i3s::{decode_geometry, encode_geometry, GeometryCounts};
+/// # use i3s::{GeometryCounts, GeometryDescriptor, ResourceCodec, UncompressedGeometryCodec};
 /// # use i3s::cmn::{GeometryBuffer, GeometryPosition, GeometryPositionType};
 /// let definition = GeometryBuffer {
 ///     position: Some(GeometryPosition {
@@ -475,8 +485,9 @@ pub fn decode_geometry(
 ///     bytes.extend_from_slice(&v.to_le_bytes());
 /// }
 /// let counts = GeometryCounts::vertices(1);
-/// let geometry = decode_geometry(&definition, &bytes, counts).unwrap();
-/// assert_eq!(encode_geometry(&definition, &geometry).unwrap(), bytes);
+/// let descriptor = GeometryDescriptor { buffer: definition, counts };
+/// let geometry = UncompressedGeometryCodec.decode(&bytes, &descriptor).unwrap();
+/// assert_eq!(UncompressedGeometryCodec.encode(&geometry, &descriptor).unwrap(), bytes);
 /// ```
 pub fn encode_geometry(
     definition: &GeometryBuffer,
@@ -502,6 +513,64 @@ pub fn encode_geometry(
         values.write_le(&mut out);
     }
     Ok(out)
+}
+
+/// Validates and encodes a 1.7+ geometry buffer for use by a writer.
+pub(crate) fn encode_geometry_checked(
+    definition: &GeometryBuffer,
+    geometry: &Geometry,
+    counts: GeometryCounts,
+) -> Result<Vec<u8>, GeometryError> {
+    if geometry.vertex_count != counts.vertex_count
+        || geometry.feature_count != counts.feature_count
+    {
+        return Err(GeometryError::LayoutMismatch {
+            attribute: "counts",
+        });
+    }
+    macro_rules! validate {
+        ($field:ident, $name:literal, $per_feature:expr) => {
+            match (&definition.$field, &geometry.$field) {
+                (None, None) => {}
+                (Some(declared), Some(values)) => {
+                    let layout = Layout {
+                        component: declared.component as usize,
+                        value_type: ValueType::from(declared.r#type),
+                        per_feature: $per_feature,
+                    };
+                    if !matches_value_type(values, layout.value_type)
+                        || values.len() != layout.count(counts)
+                    {
+                        return Err(GeometryError::LayoutMismatch { attribute: $name });
+                    }
+                }
+                _ => return Err(GeometryError::LayoutMismatch { attribute: $name }),
+            }
+        };
+    }
+    validate!(position, "position", false);
+    validate!(normal, "normal", false);
+    validate!(uv0, "uv0", false);
+    validate!(color, "color", false);
+    validate!(uv_region, "uvRegion", false);
+    validate!(feature_id, "featureId", true);
+    validate!(face_range, "faceRange", true);
+    encode_geometry(definition, geometry)
+}
+
+fn matches_value_type(values: &GeometryValues, value_type: ValueType) -> bool {
+    matches!(
+        (values, value_type),
+        (GeometryValues::F32(_), ValueType::Float32)
+            | (GeometryValues::F64(_), ValueType::Float64)
+            | (GeometryValues::U8(_), ValueType::UInt8)
+            | (GeometryValues::U16(_), ValueType::UInt16)
+            | (GeometryValues::U32(_), ValueType::UInt32)
+            | (GeometryValues::U64(_), ValueType::UInt64)
+            | (GeometryValues::I16(_), ValueType::Int16)
+            | (GeometryValues::I32(_), ValueType::Int32)
+            | (GeometryValues::I64(_), ValueType::Int64)
+    )
 }
 
 /// Decodes a 1.6 legacy geometry buffer described by

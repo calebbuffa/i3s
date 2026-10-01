@@ -4,19 +4,19 @@
 //!
 //! Each attribute resource has the following layout:
 //! ```text
-//! [uint32 count]                             ← feature count from header
-//! [uint32[] byte_counts]  (string only)      ← byte length of each string value,
+//! [uint32 count]                             <- feature count from header
+//! [uint32[] byte_counts]  (string only)      <- byte length of each string value,
 //!                                               including the null terminator
-//! [packed typed values]                      ← count x sizeof(type) bytes
+//! [packed typed values]                      <- count x sizeof(type) bytes
 //! ```
 //!
 //! The value type is read from `AttributeStorageInfo::attribute_values.valueType`.
 //! String attributes have a `attribute_byte_counts` section between the count
 //! header and the UTF-8 payload.
 
+use crate::binary::write_le_slice;
 use crate::binary::{BufferReader, UnexpectedEndOfData};
 use crate::cmn::{AttributeStorageInfo, HeaderValueType, Ordering};
-use std::collections::HashMap;
 
 /// A decoded attribute buffer for one field of one node.
 #[derive(Debug, Clone)]
@@ -30,12 +30,19 @@ pub struct AttributeBuffer {
 /// The decoded value sequence for an attribute field.
 #[derive(Debug, Clone)]
 pub enum AttributeValues {
+    /// Signed 32-bit integers.
     Int32(Vec<i32>),
+    /// Unsigned 32-bit integers.
     UInt32(Vec<u32>),
+    /// Signed 64-bit integers.
     Int64(Vec<i64>),
+    /// Unsigned 64-bit integers.
     UInt64(Vec<u64>),
+    /// Single-precision floats.
     Float32(Vec<f32>),
+    /// Double-precision floats.
     Float64(Vec<f64>),
+    /// UTF-8 strings, one per feature.
     Utf8(Vec<String>),
 }
 
@@ -53,6 +60,7 @@ impl AttributeValues {
         }
     }
 
+    /// Whether the sequence holds no values.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -70,8 +78,10 @@ pub enum AttributeDecodeError {
     /// String payload contains invalid UTF-8.
     #[error("invalid UTF-8 at feature {feature_index}: {error}")]
     InvalidUtf8 {
+        /// Index of the offending feature within the node.
         feature_index: usize,
         #[source]
+        /// The underlying UTF-8 decoding failure.
         error: std::str::Utf8Error,
     },
     /// Attribute descriptor has no `attributeValues` section.
@@ -79,10 +89,18 @@ pub enum AttributeDecodeError {
     MissingAttributeValues,
     /// `count` from the binary header exceeds the safety limit.
     #[error("attribute count {count} exceeds maximum allowed ({max})")]
-    CountTooLarge { count: usize, max: usize },
+    CountTooLarge {
+        /// The count declared by the binary header.
+        count: usize,
+        /// The largest count this crate will allocate for.
+        max: usize,
+    },
     /// Byte-length arithmetic overflowed.
     #[error("attribute buffer arithmetic overflow")]
     Overflow,
+    /// An editable value does not match its declared I3S storage type.
+    #[error("attribute value does not match declared type `{0}`")]
+    TypeMismatch(String),
 }
 
 impl From<UnexpectedEndOfData> for AttributeDecodeError {
@@ -192,37 +210,103 @@ pub fn decode_attribute(
 /// A single decoded property value from an I3S attribute.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PropertyValue {
+    /// A signed 32-bit integer.
     Int32(i32),
+    /// An unsigned 32-bit integer.
     UInt32(u32),
+    /// A signed 64-bit integer.
     Int64(i64),
+    /// An unsigned 64-bit integer.
     UInt64(u64),
+    /// A single-precision float.
     Float32(f32),
+    /// A double-precision float.
     Float64(f64),
+    /// A UTF-8 string.
     String(String),
 }
 
-/// Decode an I3S attribute binary buffer and return a map of
-/// `attribute_name -> Vec<PropertyValue>`.
+/// Encodes an editable standard I3S attribute buffer.
 ///
-/// This is a convenience wrapper around [`decode_attribute`] that converts
-/// the typed [`AttributeValues`] into a uniform [`PropertyValue`] vec.
-pub fn decode_i3s_attributes(
-    data: &[u8],
-    storage_info: &AttributeStorageInfo,
-) -> Result<HashMap<String, Vec<PropertyValue>>, AttributeDecodeError> {
-    let buf = decode_attribute(data, storage_info)?;
-    let values: Vec<PropertyValue> = match buf.values {
-        AttributeValues::Int32(v) => v.into_iter().map(PropertyValue::Int32).collect(),
-        AttributeValues::UInt32(v) => v.into_iter().map(PropertyValue::UInt32).collect(),
-        AttributeValues::Int64(v) => v.into_iter().map(PropertyValue::Int64).collect(),
-        AttributeValues::UInt64(v) => v.into_iter().map(PropertyValue::UInt64).collect(),
-        AttributeValues::Float32(v) => v.into_iter().map(PropertyValue::Float32).collect(),
-        AttributeValues::Float64(v) => v.into_iter().map(PropertyValue::Float64).collect(),
-        AttributeValues::Utf8(v) => v.into_iter().map(PropertyValue::String).collect(),
-    };
-    let mut map = HashMap::new();
-    map.insert(buf.field_name, values);
-    Ok(map)
+/// The descriptor remains authoritative for the on-wire scalar type. Values
+/// widened by the analysis-oriented decoder are range-checked before being
+/// narrowed again.
+pub fn encode_attribute(
+    buffer: &AttributeBuffer,
+    info: &AttributeStorageInfo,
+) -> Result<Vec<u8>, AttributeDecodeError> {
+    let value_type = extract_value_type(info)?;
+    let count = buffer.values.len();
+    let count = u32::try_from(count).map_err(|_| AttributeDecodeError::Overflow)?;
+    let mut out = count.to_le_bytes().to_vec();
+    match (value_type, &buffer.values) {
+        (HeaderValueType::Int32, AttributeValues::Int32(values)) => {
+            write_le_slice(&mut out, values)
+        }
+        (HeaderValueType::UInt32, AttributeValues::UInt32(values)) => {
+            write_le_slice(&mut out, values)
+        }
+        (HeaderValueType::Float32, AttributeValues::Float32(values)) => {
+            write_le_slice(&mut out, values)
+        }
+        (HeaderValueType::Float64, AttributeValues::Float64(values)) => {
+            write_le_slice(&mut out, values)
+        }
+        (HeaderValueType::Int16, AttributeValues::Int32(values)) => {
+            for value in values {
+                let value = i16::try_from(*value)
+                    .map_err(|_| AttributeDecodeError::TypeMismatch("Int16".into()))?;
+                out.extend_from_slice(&value.to_le_bytes());
+            }
+        }
+        (HeaderValueType::UInt16, AttributeValues::UInt32(values)) => {
+            for value in values {
+                let value = u16::try_from(*value)
+                    .map_err(|_| AttributeDecodeError::TypeMismatch("UInt16".into()))?;
+                out.extend_from_slice(&value.to_le_bytes());
+            }
+        }
+        (HeaderValueType::Int8, AttributeValues::Int32(values)) => {
+            for value in values {
+                let value = i8::try_from(*value)
+                    .map_err(|_| AttributeDecodeError::TypeMismatch("Int8".into()))?;
+                out.push(value as u8);
+            }
+        }
+        (HeaderValueType::UInt8, AttributeValues::UInt32(values)) => {
+            for value in values {
+                let value = u8::try_from(*value)
+                    .map_err(|_| AttributeDecodeError::TypeMismatch("UInt8".into()))?;
+                out.push(value);
+            }
+        }
+        (HeaderValueType::String, AttributeValues::Utf8(values)) => {
+            let encoded: Vec<Vec<u8>> = values
+                .iter()
+                .map(|value| {
+                    let mut bytes = value.as_bytes().to_vec();
+                    bytes.push(0);
+                    bytes
+                })
+                .collect();
+            for value in &encoded {
+                let length =
+                    u32::try_from(value.len()).map_err(|_| AttributeDecodeError::Overflow)?;
+                out.extend_from_slice(&length.to_le_bytes());
+            }
+            for value in encoded {
+                out.extend_from_slice(&value);
+            }
+        }
+        _ => {
+            return Err(AttributeDecodeError::TypeMismatch(
+                info.attribute_values
+                    .as_ref()
+                    .map_or_else(String::new, |value| value.value_type.to_string()),
+            ));
+        }
+    }
+    Ok(out)
 }
 
 /// Extract the value type from `AttributeStorageInfo::attribute_values.value_type`.

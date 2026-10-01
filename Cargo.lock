@@ -342,6 +342,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "hiera"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "78d34cad8728055ccc8094c0d4de0d44dc480a3d271f0e28eec8066d86f9063b"
+dependencies = [
+ "bytes",
+ "thiserror",
+]
+
+[[package]]
 name = "http"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -443,7 +453,7 @@ dependencies = [
 name = "i3s"
 version = "0.1.0"
 dependencies = [
- "kiba",
+ "hiera",
  "log",
  "reqwest",
  "serde",
@@ -593,14 +603,6 @@ dependencies = [
  "cfg-if",
  "futures-util",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "kiba"
-version = "0.1.0"
-source = "git+https://github.com/calebbuffa/kiba#7a3556816062fa3184a65267234a191af145287a"
-dependencies = [
- "thiserror",
 ]
 
 [[package]]
@@ -911,6 +913,7 @@ checksum = "9774ba4a74de5f7b1c1451ed6cd5285a32eddb5cccb8cc655a4e50009e06477f"
 [[package]]
 name = "schemagen"
 version = "0.1.0"
+source = "git+https://github.com/calebbuffa/schemagen.git#3cd14ecdd25ffcb314fd5021d40256a875a170ed"
 dependencies = [
  "anyhow",
  "clap",

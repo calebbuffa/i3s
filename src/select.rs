@@ -9,8 +9,8 @@
 //!
 //! So `geometryBuffers[0]` is the uncompressed buffer and, when present,
 //! `geometryBuffers[1]` is the compressed (Draco) alternative. Scoring the
-//! buffers by how many attributes they declare — as an earlier revision of
-//! this module did — can only ever reproduce that rule by accident, and
+//! buffers by how many attributes they declare - as an earlier revision of
+//! this module did - can only ever reproduce that rule by accident, and
 //! silently picks the wrong buffer for any producer whose Draco buffer
 //! enumerates fewer attributes than its uncompressed one.
 
@@ -27,7 +27,7 @@ pub enum GeometryEncodingPreference {
     /// Take the compressed buffer when the definition offers one, falling
     /// back to the uncompressed buffer otherwise. Only useful to a client
     /// that has its own Draco decoder.
-    PreferCompressed,
+    Compressed,
 }
 
 /// The buffer chosen within one geometry definition.
@@ -55,7 +55,7 @@ pub fn select_buffer_in_definition(
     }
     match preference {
         GeometryEncodingPreference::Uncompressed => Some(0),
-        GeometryEncodingPreference::PreferCompressed => Some(
+        GeometryEncodingPreference::Compressed => Some(
             definition
                 .geometry_buffers
                 .iter()
@@ -148,7 +148,7 @@ mod tests {
     fn finds_the_compressed_buffer_on_request() {
         let layer = layer_with_buffers(vec![GeometryBuffer::default(), draco()]);
         let choice =
-            select_geometry_buffer(&layer, GeometryEncodingPreference::PreferCompressed).unwrap();
+            select_geometry_buffer(&layer, GeometryEncodingPreference::Compressed).unwrap();
         assert_eq!(choice.buffer, 1);
         assert!(choice.compressed);
     }
@@ -157,7 +157,7 @@ mod tests {
     fn falls_back_when_no_compressed_buffer_exists() {
         let layer = layer_with_buffers(vec![GeometryBuffer::default()]);
         let choice =
-            select_geometry_buffer(&layer, GeometryEncodingPreference::PreferCompressed).unwrap();
+            select_geometry_buffer(&layer, GeometryEncodingPreference::Compressed).unwrap();
         assert_eq!(choice.buffer, 0);
         assert!(!choice.compressed);
     }

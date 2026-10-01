@@ -1,5 +1,5 @@
 //! End-to-end traversal of synthetic scene layers through the
-//! [`kiba::Loader`] protocol.
+//! [`hiera::Loader`] protocol.
 //!
 //! These exercise the loader against complete, if tiny, layer documents so
 //! that URL construction, page caching, profile selection and content
@@ -12,18 +12,18 @@ use std::{
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
-use i3s::{ContentKind, SceneLayerLoader, Source};
-use kiba::{FetchResponse, Loader};
+use hiera::{FetchResponse, LoadOutcome, Loader};
+use i3s::{ContentKind, SceneLayerLoader, SceneLayerReader, Source};
 
 /// A future that is always immediately ready, so the tests need no
 /// executor beyond [`block_on`].
 mod ready {
     use std::{future::Future, pin::Pin, task::Poll};
 
-    pub struct Ready(Option<Result<kiba::FetchResponse, kiba::FetchError>>);
+    pub struct Ready(Option<Result<hiera::FetchResponse, hiera::FetchError>>);
 
     impl Ready {
-        pub fn ok(response: kiba::FetchResponse) -> Self {
+        pub fn ok(response: hiera::FetchResponse) -> Self {
             Self(Some(Ok(response)))
         }
 
@@ -33,7 +33,7 @@ mod ready {
     }
 
     impl Future for Ready {
-        type Output = Result<kiba::FetchResponse, kiba::FetchError>;
+        type Output = Result<hiera::FetchResponse, hiera::FetchError>;
 
         fn poll(mut self: Pin<&mut Self>, _: &mut std::task::Context<'_>) -> Poll<Self::Output> {
             Poll::Ready(self.0.take().expect("polled after completion"))
@@ -91,12 +91,12 @@ impl Registry {
         registry
     }
 
-    fn into_fetch(self) -> impl Fn(kiba::FetchRequest) -> ready::Ready + Send + Sync + 'static {
+    fn into_fetch(self) -> impl Fn(hiera::FetchRequest) -> ready::Ready + Send + Sync + 'static {
         move |request| {
             self.requests.lock().unwrap().push(request.uri.clone());
             match self.files.lock().unwrap().get(&request.uri).cloned() {
                 Some(bytes) => ready::Ready::ok(FetchResponse {
-                    bytes,
+                    bytes: bytes.into(),
                     content_type: None,
                 }),
                 None => ready::Ready::err(format!("no such resource: {}", request.uri)),
@@ -125,10 +125,6 @@ impl Registry {
 fn to_json<T: serde::Serialize>(value: &T) -> String {
     serde_json::to_string(value).expect("fixture serializes")
 }
-
-// ---------------------------------------------------------------------
-// Node-paged mesh layer
-// ---------------------------------------------------------------------
 
 fn mesh_layer() -> String {
     use i3s::cmn::*;
@@ -319,7 +315,7 @@ fn traverses_a_node_paged_rest_layer() {
 #[test]
 fn fetches_each_node_page_once() {
     let registry = rest_registry();
-    let loader = rest_loader(&registry);
+    let loader = Arc::new(rest_loader(&registry));
 
     let root = block_on(loader.root()).expect("root");
     let expansion = block_on(loader.expand(root.clone())).expect("expand root");
@@ -339,6 +335,64 @@ fn fetches_each_node_page_once() {
 }
 
 #[test]
+fn reader_composes_with_a_shared_loader() {
+    let registry = rest_registry();
+    let loader = Arc::new(rest_loader(&registry));
+
+    let root = block_on(loader.root()).expect("traverse root");
+    assert_eq!(root.index(), Some(0));
+
+    let reader = SceneLayerReader::new(Arc::clone(&loader));
+    let document = block_on(reader.layer()).expect("typed layer read");
+    assert!(matches!(document, i3s::SceneLayerDocument::Mesh(_)));
+    assert_eq!(
+        registry.request_count("https://example.com/SceneServer/layers/0"),
+        2,
+        "the loader and reader use the same configured transport"
+    );
+}
+
+#[test]
+fn reader_loads_content_emitted_by_the_loader() {
+    let registry = rest_registry();
+    let loader = Arc::new(rest_loader(&registry));
+    let root = block_on(loader.root()).expect("root");
+    let child = block_on(loader.expand(root))
+        .expect("expand root")
+        .children
+        .pop()
+        .expect("child");
+    let content = block_on(loader.expand(child))
+        .expect("expand child")
+        .contents
+        .into_iter()
+        .next()
+        .expect("geometry content");
+
+    let reader = SceneLayerReader::new(loader);
+    let loaded = block_on(reader.load(content)).expect("load content");
+    let LoadOutcome::Ready(loaded) = loaded else {
+        panic!("expected loaded content");
+    };
+    assert_eq!(&loaded.bytes[..], b"geometry-bytes");
+}
+
+#[test]
+fn describes_a_node_with_cached_native_selection_facts() {
+    let registry = rest_registry();
+    let loader = rest_loader(&registry);
+
+    let root = block_on(loader.root()).expect("root");
+    let info = block_on(loader.describe(root)).expect("describe root");
+
+    assert!(matches!(info.bounds, i3s::NodeBounds::OrientedBox(_)));
+    assert_eq!(
+        registry.request_count("https://example.com/SceneServer/layers/0/nodepages/0"),
+        1
+    );
+}
+
+#[test]
 fn loads_content_bytes() {
     let registry = rest_registry();
     let loader = rest_loader(&registry);
@@ -348,8 +402,8 @@ fn loads_content_bytes() {
     let contents = block_on(loader.expand(child)).expect("expand").contents;
 
     match block_on(loader.load(contents[0].clone())).expect("load") {
-        kiba::LoadOutcome::Ready(loaded) => {
-            assert_eq!(loaded.bytes, b"geometry-bytes");
+        hiera::LoadOutcome::Ready(loaded) => {
+            assert_eq!(loaded.bytes.as_ref(), b"geometry-bytes");
             assert!(matches!(loaded.kind, ContentKind::Geometry { .. }));
         }
         other => panic!("expected ready content, got {other:?}"),
@@ -360,7 +414,7 @@ fn loads_content_bytes() {
 fn prefers_the_compressed_buffer_on_request() {
     let registry = rest_registry();
     let loader = rest_loader(&registry)
-        .with_geometry_preference(i3s::GeometryEncodingPreference::PreferCompressed);
+        .with_geometry_preference(i3s::GeometryEncodingPreference::Compressed);
 
     let root = block_on(loader.root()).expect("root");
     let child = block_on(loader.expand(root)).expect("expand").children[0].clone();
@@ -378,10 +432,6 @@ fn prefers_the_compressed_buffer_on_request() {
         }
     ));
 }
-
-// ---------------------------------------------------------------------
-// Packaged sources
-// ---------------------------------------------------------------------
 
 #[test]
 fn names_packaged_resources_with_extensions() {
@@ -428,10 +478,6 @@ fn names_slpk_resources_as_archive_relative_paths() {
         "an slpk entry name has no scheme and no leading slash"
     );
 }
-
-// ---------------------------------------------------------------------
-// Point cloud layer
-// ---------------------------------------------------------------------
 
 #[test]
 fn traverses_a_point_cloud_layer() {
@@ -527,10 +573,6 @@ fn traverses_a_point_cloud_layer() {
         }
     ));
 }
-
-// ---------------------------------------------------------------------
-// Point layer
-// ---------------------------------------------------------------------
 
 #[test]
 fn traverses_a_point_layer_through_its_point_node_pages() {
@@ -640,10 +682,6 @@ fn traverses_a_point_layer_through_its_point_node_pages() {
     ));
 }
 
-// ---------------------------------------------------------------------
-// Building layer
-// ---------------------------------------------------------------------
-
 #[test]
 fn descends_a_building_layer_into_its_geometry_sublayers() {
     use i3s::bld::{LayerBld, LayerBldLayerType, SublayerBld, SublayerBldLayerType};
@@ -685,10 +723,10 @@ fn descends_a_building_layer_into_its_geometry_sublayers() {
             mesh_page_0(),
         ),
     ]);
-    let loader = SceneLayerLoader::open(
+    let loader = Arc::new(SceneLayerLoader::open(
         Source::rest("https://example.com/SceneServer", 4),
         registry.clone().into_fetch(),
-    );
+    ));
 
     let root = block_on(loader.root()).expect("root");
     assert_eq!(root.building().map(|l| &*l.name), Some("tower"));
@@ -720,11 +758,18 @@ fn descends_a_building_layer_into_its_geometry_sublayers() {
         uris[1],
         "https://example.com/SceneServer/layers/4/sublayers/9/nodes/7/attributes/f_0/0"
     );
-}
 
-// ---------------------------------------------------------------------
-// Legacy 1.6 layer
-// ---------------------------------------------------------------------
+    let sublayer = SceneLayerReader::new(Arc::clone(&loader)).sublayer(9);
+    assert!(matches!(
+        block_on(sublayer.layer()).expect("read typed sublayer"),
+        i3s::SceneLayerDocument::Mesh(_)
+    ));
+    assert_eq!(
+        sublayer.source().sublayer_id(),
+        Some(9),
+        "the typed reader retains the geometry sublayer address"
+    );
+}
 
 #[test]
 fn traverses_a_legacy_node_document_layer() {
@@ -789,7 +834,7 @@ fn traverses_a_legacy_node_document_layer() {
             to_json(&child_node),
         ),
     ]);
-    let loader = rest_loader(&registry);
+    let loader = Arc::new(rest_loader(&registry));
 
     let root = block_on(loader.root()).expect("root");
     assert_eq!(root.index(), None, "a legacy node has no global index");
@@ -797,6 +842,14 @@ fn traverses_a_legacy_node_document_layer() {
         root.uri(),
         Some("https://example.com/SceneServer/layers/0/nodes/root")
     );
+    let legacy = block_on(
+        SceneLayerReader::new(Arc::clone(&loader)).legacy_node_uri(
+            root.uri()
+                .expect("legacy root retains its resolved non-numeric href"),
+        ),
+    )
+    .expect("read typed legacy root by href");
+    assert_eq!(&*legacy.id, "root");
 
     let expansion = block_on(loader.expand(root)).expect("expand root");
     let uris: Vec<&str> = expansion.contents.iter().map(|c| c.uri.as_str()).collect();
@@ -832,10 +885,6 @@ fn traverses_a_legacy_node_document_layer() {
         1
     );
 }
-
-// ---------------------------------------------------------------------
-// Failure modes
-// ---------------------------------------------------------------------
 
 #[test]
 fn falls_back_to_node_zero_when_a_legacy_layer_omits_its_root_node() {

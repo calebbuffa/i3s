@@ -22,8 +22,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use hiera::{FetchError, FetchRequest, FetchResponse, LoadOutcome, Loader};
 use i3s::{ContentKind, SceneLayerLoader, Source};
-use kiba::{FetchError, FetchRequest, FetchResponse, LoadOutcome, Loader};
 
 /// Upper bound on nodes visited per test.
 ///
@@ -42,8 +42,8 @@ const CONTENT_SAMPLE: usize = 12;
 /// so every document request must ask for `f=json` explicitly. Binary
 /// resources are served without it, so the parameter cannot simply be
 /// appended to everything. And the services gzip their JSON *unconditionally*
-/// — a response arrives `Content-Encoding: gzip` whether or not the client
-/// asked — so transparent decompression is required, not merely an
+/// - a response arrives `Content-Encoding: gzip` whether or not the client
+/// asked - so transparent decompression is required, not merely an
 /// optimisation.
 #[derive(Clone)]
 struct Transport {
@@ -74,7 +74,7 @@ impl Transport {
         let mut builder = self.client.get(&url);
         if let Some(range) = request.range {
             let value = match range.end {
-                // kiba's end is exclusive; HTTP's is inclusive.
+                // Hiera's end is exclusive; HTTP's is inclusive.
                 Some(end) => format!("bytes={}-{}", range.start, end.saturating_sub(1)),
                 None => format!("bytes={}-", range.start),
             };
@@ -94,7 +94,7 @@ impl Transport {
         }
 
         Ok(FetchResponse {
-            bytes: response.bytes().await?.to_vec(),
+            bytes: response.bytes().await?,
             content_type,
         })
     }
@@ -137,12 +137,8 @@ fn loader(source: Source) -> (SceneLayerLoader, Transport) {
     (loader, transport)
 }
 
-// ---------------------------------------------------------------------
-// Traversal
-// ---------------------------------------------------------------------
-
 /// What a walk observed, so a test can assert on shape rather than on any
-/// single node — published services change, and a test that pins an exact
+/// single node - published services change, and a test that pins an exact
 /// node count would be a maintenance burden with no extra signal.
 #[derive(Debug, Default)]
 struct Walk {
@@ -160,8 +156,8 @@ struct Walk {
 /// Walks `loader` breadth first, visiting up to [`MAX_NODES`] nodes.
 ///
 /// Breadth first rather than depth first because an I3S tree is wide and
-/// shallow at the top and the interesting variety — sublayer roots, the
-/// transition from a group to a leaf layer — is near the root. A depth-first
+/// shallow at the top and the interesting variety - sublayer roots, the
+/// transition from a group to a leaf layer - is near the root. A depth-first
 /// walk with the same budget would descend one branch and never see it.
 async fn walk(loader: &SceneLayerLoader, load_content: bool) -> Walk {
     let root = loader.root().await.expect("fetch layer root");
@@ -224,7 +220,7 @@ async fn walk(loader: &SceneLayerLoader, load_content: bool) -> Walk {
                         summary.bytes_loaded += loaded.bytes.len();
                         check_decodes(&loaded);
                     }
-                    Ok(LoadOutcome::Empty | LoadOutcome::Retry) => {}
+                    Ok(_) => {}
                     Err(e) => panic!("load {}: {e}", content.uri),
                 }
             }
@@ -237,7 +233,7 @@ async fn walk(loader: &SceneLayerLoader, load_content: bool) -> Walk {
 }
 
 /// Runs the decoder matching the content kind, so a walk proves the bytes
-/// are what the layer document said they would be — not merely that some
+/// are what the layer document said they would be - not merely that some
 /// bytes came back.
 fn check_decodes(loaded: &i3s::LoadedContent) {
     match &loaded.kind {

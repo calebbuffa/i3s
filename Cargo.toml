@@ -7,13 +7,29 @@ version = "0.1.0"
 license = "Apache-2.0"
 repository = "https://github.com/calebbuffa/i3s"
 edition = "2024"
-description = "I3S (Indexed 3D Scene Layer) specification"
+rust-version = "1.85"
+readme = "README.md"
+description = "Esri Indexed 3D Scene Layers (I3S)."
+keywords = ["i3s", "slpk", "esri", "geospatial", "3d"]
+categories = ["science::geo", "parser-implementations", "encoding"]
+# `tests/realworld.rs` reads fixtures from `tests/realworld/`, which is
+# excluded, so it cannot run from a published package. `.gitmodules` and
+# `generate.ps1` only drive regeneration from the excluded `extern/`
+# submodules, so they are dead weight in a published package.
+exclude = [
+    "extern/**",
+    "xtask/**",
+    "tests/realworld/**",
+    "tests/realworld.rs",
+    ".gitmodules",
+    "generate.ps1",
+]
 
 [features]
 strict = []
 
 [dependencies]
-kiba = { git = "https://github.com/calebbuffa/kiba" }
+hiera = "0.1.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

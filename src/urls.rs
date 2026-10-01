@@ -6,8 +6,8 @@
 //! | Source | Naming |
 //! | --- | --- |
 //! | [`SourceKind::Rest`] | `http://serviceURL/layers/{layerID}/nodepages/{id}` |
-//! | [`SourceKind::Slpk`] | `nodepages/{id}.json.gz` — an entry inside a ZIP |
-//! | [`SourceKind::Eslpk`] | `{base}/nodepages/{id}.json.gz` — the same tree unpacked |
+//! | [`SourceKind::Slpk`] | `nodepages/{id}.json.gz` - an entry inside a ZIP |
+//! | [`SourceKind::Eslpk`] | `{base}/nodepages/{id}.json.gz` - the same tree unpacked |
 //!
 //! The REST templates come from the profile ReadMe files (for example
 //! `3Dobject_ReadMe.md`); the package layout comes from the *scene layer
@@ -15,7 +15,7 @@
 //!
 //! Two consequences follow from the package layout and are handled here:
 //!
-//! * **Packaged resources carry a file extension** that REST omits — `.json`
+//! * **Packaged resources carry a file extension** that REST omits - `.json`
 //!   for documents, `.bin` for binary, and a `.gz` suffix when the store
 //!   declares gzip in `nidEncoding`/`featureEncoding`.
 //! * **The layer id disappears** inside a package: a package holds exactly one
@@ -25,7 +25,7 @@
 //!
 //! Every node-scoped resource is keyed by a **resource id**, taken from the
 //! node's `mesh` sub-objects (`mesh.geometry.resource`,
-//! `mesh.material.resource`, `mesh.attribute.resource`) — *not* by
+//! `mesh.material.resource`, `mesh.attribute.resource`) - *not* by
 //! [`Node::index`](crate::cmn::Node::index):
 //!
 //! > Clients have to use the `resource` identifiers written in each node to
@@ -288,7 +288,7 @@ impl Source {
 
     /// A geometry resource.
     ///
-    /// `resource` is `mesh.geometry.resource` — see the [module docs](self) on
+    /// `resource` is `mesh.geometry.resource` - see the [module docs](self) on
     /// why this is not the node index. `buffer_index` selects a
     /// `GeometryBuffer` within the node's `GeometryDefinition`.
     ///
@@ -312,7 +312,7 @@ impl Source {
     ///
     /// `attribute_key` is the *key* from
     /// [`AttributeStorageInfo::key`](crate::cmn::AttributeStorageInfo::key)
-    /// (the `N` in `f_N`), not the array position — the spec allows these to
+    /// (the `N` in `f_N`), not the array position - the spec allows these to
     /// differ, and gaps are common where fields have been dropped.
     ///
     /// ```

@@ -2,19 +2,19 @@
 //!
 //! The hand-built fixtures in `loader.rs` prove the loader's logic, but they
 //! are written against the *specification*, so they cannot catch the places
-//! where the specification and shipped data disagree — and there are such
+//! where the specification and shipped data disagree - and there are such
 //! places. These documents were fetched from live ArcGIS services and are
 //! checked in unmodified, so a regression against real data fails here.
 //!
 //! Each file records where it came from:
 //!
-//! * `point_osm_trees.json` — OpenStreetMap 3D Trees (Thematic),
+//! * `point_osm_trees.json` - OpenStreetMap 3D Trees (Thematic),
 //!   `basemaps3d.arcgis.com/.../OpenStreetMap3D_Trees_Thematic_v1`. A modern
 //!   node-paged Point layer, store version 2.0.
-//! * `building_turanga.json` — Turanga Library,
+//! * `building_turanga.json` - Turanga Library,
 //!   `tiles.arcgis.com/tiles/cFEFS0EWrhfDeVw9/.../Turanga_Library`. A
 //!   building scene layer with nested groups and mixed leaf types.
-//! * `object_sublayer.json` / `point_legacy_sublayer.json` — two sublayers
+//! * `object_sublayer.json` / `point_legacy_sublayer.json` - two sublayers
 //!   of that building layer, which are 1.6 layers in their own right.
 
 use i3s::{bld, cmn, psl};
