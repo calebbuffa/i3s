@@ -14,8 +14,9 @@
 //! String attributes have a `attribute_byte_counts` section between the count
 //! header and the UTF-8 payload.
 
+use crate::Error;
+use crate::binary::BufferReader;
 use crate::binary::write_le_slice;
-use crate::binary::{BufferReader, UnexpectedEndOfData};
 use crate::cmn::{AttributeStorageInfo, HeaderValueType, Ordering};
 
 /// A decoded attribute buffer for one field of one node.
@@ -66,49 +67,6 @@ impl AttributeValues {
     }
 }
 
-/// Errors from the attribute decode pipeline.
-#[derive(Debug, thiserror::Error)]
-pub enum AttributeDecodeError {
-    /// Buffer is shorter than the header/payload requires.
-    #[error("attribute buffer truncated")]
-    Truncated,
-    /// Value type string in the descriptor is not recognised.
-    #[error("unknown attribute value type: {0}")]
-    UnknownValueType(String),
-    /// String payload contains invalid UTF-8.
-    #[error("invalid UTF-8 at feature {feature_index}: {error}")]
-    InvalidUtf8 {
-        /// Index of the offending feature within the node.
-        feature_index: usize,
-        #[source]
-        /// The underlying UTF-8 decoding failure.
-        error: std::str::Utf8Error,
-    },
-    /// Attribute descriptor has no `attributeValues` section.
-    #[error("attributeStorageInfo has no attributeValues descriptor")]
-    MissingAttributeValues,
-    /// `count` from the binary header exceeds the safety limit.
-    #[error("attribute count {count} exceeds maximum allowed ({max})")]
-    CountTooLarge {
-        /// The count declared by the binary header.
-        count: usize,
-        /// The largest count this crate will allocate for.
-        max: usize,
-    },
-    /// Byte-length arithmetic overflowed.
-    #[error("attribute buffer arithmetic overflow")]
-    Overflow,
-    /// An editable value does not match its declared I3S storage type.
-    #[error("attribute value does not match declared type `{0}`")]
-    TypeMismatch(String),
-}
-
-impl From<UnexpectedEndOfData> for AttributeDecodeError {
-    fn from(_: UnexpectedEndOfData) -> Self {
-        AttributeDecodeError::Truncated
-    }
-}
-
 /// Decode a raw I3S attribute binary buffer into an [`AttributeBuffer`].
 ///
 /// # Arguments
@@ -120,14 +78,14 @@ impl From<UnexpectedEndOfData> for AttributeDecodeError {
 pub fn decode_attribute(
     data: &[u8],
     info: &AttributeStorageInfo,
-) -> Result<AttributeBuffer, AttributeDecodeError> {
+) -> Result<AttributeBuffer, Error> {
     let mut r = BufferReader::new(data);
     let count = r.read_le::<u32>()? as usize;
 
     // Reject absurdly large counts before allocating anything.
     const MAX_ATTRIBUTE_COUNT: usize = 10_000_000;
     if count > MAX_ATTRIBUTE_COUNT {
-        return Err(AttributeDecodeError::CountTooLarge {
+        return Err(Error::AttributeCountTooLarge {
             count,
             max: MAX_ATTRIBUTE_COUNT,
         });
@@ -190,11 +148,10 @@ pub fn decode_attribute(
                 } else {
                     slice
                 };
-                let s =
-                    std::str::from_utf8(slice).map_err(|e| AttributeDecodeError::InvalidUtf8 {
-                        feature_index: i,
-                        error: e,
-                    })?;
+                let s = std::str::from_utf8(slice).map_err(|e| Error::AttributeInvalidUtf8 {
+                    feature_index: i,
+                    error: e,
+                })?;
                 strings.push(s.to_owned());
             }
             AttributeValues::Utf8(strings)
@@ -234,10 +191,10 @@ pub enum PropertyValue {
 pub fn encode_attribute(
     buffer: &AttributeBuffer,
     info: &AttributeStorageInfo,
-) -> Result<Vec<u8>, AttributeDecodeError> {
+) -> Result<Vec<u8>, Error> {
     let value_type = extract_value_type(info)?;
     let count = buffer.values.len();
-    let count = u32::try_from(count).map_err(|_| AttributeDecodeError::Overflow)?;
+    let count = u32::try_from(count).map_err(|_| Error::AttributeOverflow)?;
     let mut out = count.to_le_bytes().to_vec();
     match (value_type, &buffer.values) {
         (HeaderValueType::Int32, AttributeValues::Int32(values)) => {
@@ -255,28 +212,28 @@ pub fn encode_attribute(
         (HeaderValueType::Int16, AttributeValues::Int32(values)) => {
             for value in values {
                 let value = i16::try_from(*value)
-                    .map_err(|_| AttributeDecodeError::TypeMismatch("Int16".into()))?;
+                    .map_err(|_| Error::AttributeTypeMismatch("Int16".into()))?;
                 out.extend_from_slice(&value.to_le_bytes());
             }
         }
         (HeaderValueType::UInt16, AttributeValues::UInt32(values)) => {
             for value in values {
                 let value = u16::try_from(*value)
-                    .map_err(|_| AttributeDecodeError::TypeMismatch("UInt16".into()))?;
+                    .map_err(|_| Error::AttributeTypeMismatch("UInt16".into()))?;
                 out.extend_from_slice(&value.to_le_bytes());
             }
         }
         (HeaderValueType::Int8, AttributeValues::Int32(values)) => {
             for value in values {
                 let value = i8::try_from(*value)
-                    .map_err(|_| AttributeDecodeError::TypeMismatch("Int8".into()))?;
+                    .map_err(|_| Error::AttributeTypeMismatch("Int8".into()))?;
                 out.push(value as u8);
             }
         }
         (HeaderValueType::UInt8, AttributeValues::UInt32(values)) => {
             for value in values {
                 let value = u8::try_from(*value)
-                    .map_err(|_| AttributeDecodeError::TypeMismatch("UInt8".into()))?;
+                    .map_err(|_| Error::AttributeTypeMismatch("UInt8".into()))?;
                 out.push(value);
             }
         }
@@ -290,8 +247,7 @@ pub fn encode_attribute(
                 })
                 .collect();
             for value in &encoded {
-                let length =
-                    u32::try_from(value.len()).map_err(|_| AttributeDecodeError::Overflow)?;
+                let length = u32::try_from(value.len()).map_err(|_| Error::AttributeOverflow)?;
                 out.extend_from_slice(&length.to_le_bytes());
             }
             for value in encoded {
@@ -299,7 +255,7 @@ pub fn encode_attribute(
             }
         }
         _ => {
-            return Err(AttributeDecodeError::TypeMismatch(
+            return Err(Error::AttributeTypeMismatch(
                 info.attribute_values
                     .as_ref()
                     .map_or_else(String::new, |value| value.value_type.to_string()),
@@ -310,13 +266,11 @@ pub fn encode_attribute(
 }
 
 /// Extract the value type from `AttributeStorageInfo::attribute_values.value_type`.
-fn extract_value_type(
-    info: &AttributeStorageInfo,
-) -> Result<HeaderValueType, AttributeDecodeError> {
+fn extract_value_type(info: &AttributeStorageInfo) -> Result<HeaderValueType, Error> {
     let val = info
         .attribute_values
         .as_ref()
-        .ok_or(AttributeDecodeError::MissingAttributeValues)?;
+        .ok_or(Error::AttributeMissingValues)?;
 
     let type_str = val.value_type.as_ref();
 
@@ -330,7 +284,7 @@ fn extract_value_type(
         "Float32" => HeaderValueType::Float32,
         "Float64" => HeaderValueType::Float64,
         "String" | "Oid32" | "Oid64" => HeaderValueType::String,
-        _ => return Err(AttributeDecodeError::UnknownValueType(type_str.to_owned())),
+        _ => return Err(Error::AttributeUnknownValueType(type_str.to_owned())),
     };
     Ok(vt)
 }
@@ -488,7 +442,7 @@ mod tests {
     fn truncated_header_returns_error() {
         let info = make_info("x", "Int32");
         let result = decode_attribute(&[], &info); // no count header
-        assert!(matches!(result, Err(AttributeDecodeError::Truncated)));
+        assert!(matches!(result, Err(Error::AttributeTruncated)));
     }
 
     #[test]
@@ -496,7 +450,7 @@ mod tests {
         let info = make_info("x", "Int32");
         // count = 3, but only 4 bytes of payload (need 12)
         let result = decode_attribute(&buf(3, &[0u8; 4]), &info);
-        assert!(matches!(result, Err(AttributeDecodeError::Truncated)));
+        assert!(matches!(result, Err(Error::AttributeTruncated)));
     }
 
     #[test]
@@ -511,20 +465,14 @@ mod tests {
             object_ids: None,
         };
         let result = decode_attribute(&buf(0, &[]), &info);
-        assert!(matches!(
-            result,
-            Err(AttributeDecodeError::MissingAttributeValues)
-        ));
+        assert!(matches!(result, Err(Error::AttributeMissingValues)));
     }
 
     #[test]
     fn unknown_value_type_returns_error() {
         let info = make_info("x", "Binary"); // unsupported
         let result = decode_attribute(&buf(0, &[]), &info);
-        assert!(matches!(
-            result,
-            Err(AttributeDecodeError::UnknownValueType(_))
-        ));
+        assert!(matches!(result, Err(Error::AttributeUnknownValueType(_))));
     }
 
     #[test]

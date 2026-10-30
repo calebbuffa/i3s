@@ -1,4 +1,4 @@
-//! Node-page packing.
+//! Node-page indexing and packing.
 //!
 //! The specification stores nodes as a flat array served in fixed-size pages.
 //! Producers that build a hierarchy node by node need the inverse of the
@@ -7,6 +7,38 @@
 use serde::Serialize;
 
 use crate::Error;
+
+/// Page index holding the node at `node_index`.
+///
+/// Implements `floor(node_index / nodes_per_page)`.
+///
+/// ```
+/// # use i3s::page_id_of;
+/// assert_eq!(page_id_of(0, 64), 0);
+/// assert_eq!(page_id_of(63, 64), 0);
+/// assert_eq!(page_id_of(64, 64), 1);
+/// ```
+///
+/// # Panics
+///
+/// Panics if `nodes_per_page` is zero.
+pub fn page_id_of(node_index: u64, nodes_per_page: u64) -> u64 {
+    node_index / nodes_per_page
+}
+
+/// Offset of the node at `node_index` within its page.
+///
+/// ```
+/// # use i3s::page_offset_of;
+/// assert_eq!(page_offset_of(65, 64), 1);
+/// ```
+///
+/// # Panics
+///
+/// Panics if `nodes_per_page` is zero.
+pub fn page_offset_of(node_index: u64, nodes_per_page: u64) -> usize {
+    (node_index % nodes_per_page) as usize
+}
 
 /// The serialized shape of one `nodepages/N.json` document.
 #[derive(Serialize)]
@@ -80,7 +112,7 @@ where
         Some(
             serde_json::to_vec(&Page { nodes: &chunk })
                 .map(|body| (id, body))
-                .map_err(|e| Error::parse(format!("nodepages/{id}"), e.to_string())),
+                .map_err(|source| Error::json(format!("nodepages/{id}"), source)),
         )
     }))
 }
@@ -88,6 +120,18 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn page_math_partitions_node_indices() {
+        for size in [1, 2, 64, 2048] {
+            for index in 0..5000 {
+                let page = page_id_of(index, size);
+                let offset = page_offset_of(index, size) as u64;
+                assert!(offset < size);
+                assert_eq!(page * size + offset, index);
+            }
+        }
+    }
 
     #[test]
     fn rejects_page_sizes_the_specification_forbids() {

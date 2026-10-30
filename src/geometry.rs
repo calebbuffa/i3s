@@ -42,10 +42,9 @@
 //! A buffer carrying `compressedAttributes` is Draco-encoded and cannot be
 //! decoded here - Draco is a separate codec and pulling it in would contradict
 //! this crate's specification-only scope. Such buffers are reported as
-//! [`GeometryError::Compressed`]; `hiera::i3s::draco` (feature `draco`)
-//! decodes them into the same [`Geometry`] layout.
-//! Hiera's `select_geometry_buffer` can be told to avoid them.
+//! [`Error::GeometryCompressed`].
 
+use crate::Error;
 use crate::binary::{BufferReader, UnexpectedEndOfData, write_le_slice};
 use crate::cmn::{
     DefaultGeometrySchema, DefaultGeometrySchemaTopology, GeometryAttribute,
@@ -54,61 +53,13 @@ use crate::cmn::{
     GeometryUvType, HeaderAttributeType,
 };
 
-/// A failure while decoding or encoding a geometry buffer.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[non_exhaustive]
-pub enum GeometryError {
-    /// The buffer ended before the declared layout was satisfied.
-    #[error("geometry buffer ended early while reading `{attribute}`")]
-    UnexpectedEnd {
-        /// The attribute being read when the buffer ran out.
-        attribute: &'static str,
-    },
-
-    /// The buffer is Draco-compressed and must be handed to a Draco decoder.
-    #[error("geometry buffer uses `compressedAttributes` (Draco) encoding")]
-    Compressed,
-
-    /// Bytes remained after every declared attribute had been consumed. The
-    /// declared layout does not match the payload, so the decode is unsound.
-    #[error("geometry buffer has {trailing} trailing byte(s) after the declared layout")]
-    TrailingBytes {
-        /// Number of bytes left over.
-        trailing: usize,
-    },
-
-    /// The layout declared a topology this decoder does not implement.
-    #[error("unsupported geometry topology `{topology}`")]
-    UnsupportedTopology {
-        /// The declared topology.
-        topology: &'static str,
-    },
-
-    /// A legacy schema named an attribute the specification does not define.
-    #[error("unknown legacy geometry attribute `{name}`")]
-    UnknownAttribute {
-        /// The offending name from `ordering` or `featureAttributeOrder`.
-        name: String,
-    },
-
-    /// A legacy header lacked `vertexCount`, so no block size can be derived.
-    #[error("legacy geometry header has no `vertexCount` property")]
-    MissingVertexCount,
-
-    /// An edited geometry did not match its declared buffer layout.
-    #[error("geometry attribute `{attribute}` does not match the declared layout")]
-    LayoutMismatch {
-        /// The declared attribute that failed validation.
-        attribute: &'static str,
-    },
-}
-
-impl From<UnexpectedEndOfData> for GeometryError {
-    fn from(_: UnexpectedEndOfData) -> Self {
-        Self::UnexpectedEnd {
-            attribute: "unknown",
-        }
-    }
+/// Native layout and counts required to interpret a geometry buffer.
+#[derive(Clone)]
+pub struct GeometryDescriptor {
+    /// The selected buffer definition.
+    pub buffer: GeometryBuffer,
+    /// Counts declared by the node page.
+    pub counts: GeometryCounts,
 }
 
 /// The values of one decoded geometry attribute, widened to a common type per
@@ -349,7 +300,7 @@ fn read_values(
     layout: Layout,
     counts: GeometryCounts,
     attribute: &'static str,
-) -> Result<GeometryValues, GeometryError> {
+) -> Result<GeometryValues, Error> {
     read_n(reader, layout.value_type, layout.count(counts), attribute)
 }
 
@@ -358,8 +309,8 @@ fn read_n(
     value_type: ValueType,
     n: usize,
     attribute: &'static str,
-) -> Result<GeometryValues, GeometryError> {
-    let map = |_: UnexpectedEndOfData| GeometryError::UnexpectedEnd { attribute };
+) -> Result<GeometryValues, Error> {
+    let map = |_: UnexpectedEndOfData| Error::GeometryUnexpectedEnd { attribute };
     Ok(match value_type {
         ValueType::Float32 => GeometryValues::F32(reader.read_le_vec::<f32>(n).map_err(map)?),
         ValueType::Float64 => GeometryValues::F64(reader.read_le_vec::<f64>(n).map_err(map)?),
@@ -384,9 +335,9 @@ fn read_n(
 ///
 /// # Errors
 ///
-/// Returns [`GeometryError::Compressed`] for a Draco buffer,
-/// [`GeometryError::UnexpectedEnd`] if the payload is shorter than the
-/// declared layout, and [`GeometryError::TrailingBytes`] if it is longer -
+/// Returns [`Error::GeometryCompressed`] for a Draco buffer,
+/// [`Error::GeometryUnexpectedEnd`] if the payload is shorter than the
+/// declared layout, and [`Error::GeometryTrailingBytes`] if it is longer -
 /// the latter signals that the layout and payload disagree, which would make
 /// any decoded values untrustworthy.
 ///
@@ -414,16 +365,16 @@ pub fn decode_geometry(
     definition: &GeometryBuffer,
     bytes: &[u8],
     counts: GeometryCounts,
-) -> Result<Geometry, GeometryError> {
+) -> Result<Geometry, Error> {
     if definition.compressed_attributes.is_some() {
-        return Err(GeometryError::Compressed);
+        return Err(Error::GeometryCompressed);
     }
 
     let mut reader = BufferReader::new(bytes);
     // `offset` skips a legacy header that this layout does not describe.
     reader
         .seek(definition.offset.unwrap_or(0) as usize)
-        .map_err(|_| GeometryError::UnexpectedEnd {
+        .map_err(|_| Error::GeometryUnexpectedEnd {
             attribute: "offset",
         })?;
 
@@ -457,7 +408,7 @@ pub fn decode_geometry(
 
     let trailing = reader.remaining();
     if trailing != 0 {
-        return Err(GeometryError::TrailingBytes { trailing });
+        return Err(Error::GeometryTrailingBytes { trailing });
     }
     Ok(geometry)
 }
@@ -487,12 +438,9 @@ pub fn decode_geometry(
 /// let geometry = decode_geometry(&definition, &bytes, counts).unwrap();
 /// assert_eq!(encode_geometry_checked(&definition, &geometry, counts).unwrap(), bytes);
 /// ```
-pub fn encode_geometry(
-    definition: &GeometryBuffer,
-    geometry: &Geometry,
-) -> Result<Vec<u8>, GeometryError> {
+pub fn encode_geometry(definition: &GeometryBuffer, geometry: &Geometry) -> Result<Vec<u8>, Error> {
     if definition.compressed_attributes.is_some() {
-        return Err(GeometryError::Compressed);
+        return Err(Error::GeometryCompressed);
     }
 
     let mut out = vec![0u8; definition.offset.unwrap_or(0) as usize];
@@ -518,11 +466,11 @@ pub fn encode_geometry_checked(
     definition: &GeometryBuffer,
     geometry: &Geometry,
     counts: GeometryCounts,
-) -> Result<Vec<u8>, GeometryError> {
+) -> Result<Vec<u8>, Error> {
     if geometry.vertex_count != counts.vertex_count
         || geometry.feature_count != counts.feature_count
     {
-        return Err(GeometryError::LayoutMismatch {
+        return Err(Error::GeometryLayoutMismatch {
             attribute: "counts",
         });
     }
@@ -539,10 +487,10 @@ pub fn encode_geometry_checked(
                     if !matches_value_type(values, layout.value_type)
                         || values.len() != layout.count(counts)
                     {
-                        return Err(GeometryError::LayoutMismatch { attribute: $name });
+                        return Err(Error::GeometryLayoutMismatch { attribute: $name });
                     }
                 }
-                _ => return Err(GeometryError::LayoutMismatch { attribute: $name }),
+                _ => return Err(Error::GeometryLayoutMismatch { attribute: $name }),
             }
         };
     }
@@ -590,7 +538,7 @@ fn matches_value_type(values: &GeometryValues, value_type: ValueType) -> bool {
 pub fn decode_schema_geometry(
     schema: &DefaultGeometrySchema,
     bytes: &[u8],
-) -> Result<Geometry, GeometryError> {
+) -> Result<Geometry, Error> {
     let mut reader = BufferReader::new(bytes);
 
     // The header is a flat list of scalars; `vertexCount` and `featureCount`
@@ -615,7 +563,7 @@ pub fn decode_schema_geometry(
             _ => {}
         }
     }
-    let vertex_count = vertex_count.ok_or(GeometryError::MissingVertexCount)?;
+    let vertex_count = vertex_count.ok_or(Error::GeometryMissingVertexCount)?;
 
     let mut geometry = Geometry {
         vertex_count,
@@ -630,7 +578,7 @@ pub fn decode_schema_geometry(
         let faces = schema
             .faces
             .as_ref()
-            .ok_or(GeometryError::UnsupportedTopology {
+            .ok_or(Error::GeometryUnsupportedTopology {
                 topology: "Indexed without a `faces` declaration",
             })?;
         geometry.faces = Some(read_legacy_attribute(
@@ -655,7 +603,7 @@ pub fn decode_schema_geometry(
 
     let trailing = reader.remaining();
     if trailing != 0 {
-        return Err(GeometryError::TrailingBytes { trailing });
+        return Err(Error::GeometryTrailingBytes { trailing });
     }
     Ok(geometry)
 }
@@ -665,12 +613,12 @@ fn read_legacy_attribute(
     attribute: &GeometryAttribute,
     elements: usize,
     label: &'static str,
-) -> Result<GeometryValues, GeometryError> {
+) -> Result<GeometryValues, Error> {
     // A `byteOffset` on a legacy attribute is absolute within the buffer.
     if let Some(offset) = attribute.byte_offset {
         reader
             .seek(offset as usize)
-            .map_err(|_| GeometryError::UnexpectedEnd { attribute: label })?;
+            .map_err(|_| Error::GeometryUnexpectedEnd { attribute: label })?;
     }
     let layout = Layout {
         component: attribute.values_per_element as usize,
@@ -683,7 +631,7 @@ fn read_legacy_attribute(
 fn legacy_vertex_attribute<'a>(
     schema: &'a DefaultGeometrySchema,
     name: &str,
-) -> Result<&'a GeometryAttribute, GeometryError> {
+) -> Result<&'a GeometryAttribute, Error> {
     let attributes = &schema.vertex_attributes;
     match name {
         "position" => Some(&attributes.position),
@@ -693,7 +641,7 @@ fn legacy_vertex_attribute<'a>(
         "region" | "uvRegion" => attributes.region.as_ref(),
         _ => None,
     }
-    .ok_or_else(|| GeometryError::UnknownAttribute {
+    .ok_or_else(|| Error::GeometryUnknownAttribute {
         name: name.to_string(),
     })
 }
@@ -708,19 +656,19 @@ fn read_legacy_feature_attribute(
     schema: &DefaultGeometrySchema,
     name: &str,
     feature_count: usize,
-) -> Result<GeometryValues, GeometryError> {
+) -> Result<GeometryValues, Error> {
     let attributes = &schema.feature_attributes;
     let value = match name {
         "id" => attributes.id.as_ref(),
         "faceRange" => attributes.face_range.as_ref(),
         _ => None,
     }
-    .ok_or_else(|| GeometryError::UnknownAttribute {
+    .ok_or_else(|| Error::GeometryUnknownAttribute {
         name: name.to_string(),
     })?;
 
     let value_type =
-        parse_value_type(&value.value_type).ok_or_else(|| GeometryError::UnknownAttribute {
+        parse_value_type(&value.value_type).ok_or_else(|| Error::GeometryUnknownAttribute {
             name: value.value_type.to_string(),
         })?;
     let component = value.values_per_element.unwrap_or(1) as usize;
@@ -753,7 +701,7 @@ fn store_vertex_attribute(
     geometry: &mut Geometry,
     name: &str,
     values: GeometryValues,
-) -> Result<(), GeometryError> {
+) -> Result<(), Error> {
     match name {
         "position" => geometry.position = Some(values),
         "normal" => geometry.normal = Some(values),
@@ -761,7 +709,7 @@ fn store_vertex_attribute(
         "color" => geometry.color = Some(values),
         "region" | "uvRegion" => geometry.uv_region = Some(values),
         _ => {
-            return Err(GeometryError::UnknownAttribute {
+            return Err(Error::GeometryUnknownAttribute {
                 name: name.to_string(),
             });
         }
@@ -773,18 +721,15 @@ fn store_feature_attribute(
     geometry: &mut Geometry,
     name: &str,
     values: GeometryValues,
-) -> Result<(), GeometryError> {
+) -> Result<(), Error> {
     match name {
         "id" => geometry.feature_id = Some(values),
         "faceRange" => geometry.face_range = Some(values),
         _ => {
-            return Err(GeometryError::UnknownAttribute {
+            return Err(Error::GeometryUnknownAttribute {
                 name: name.to_string(),
             });
         }
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

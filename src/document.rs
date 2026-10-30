@@ -54,9 +54,8 @@ pub(crate) fn parse_scene_layer_document(
         layer_type: Option<String>,
     }
 
-    let probe: Probe =
-        serde_json::from_slice(bytes).map_err(|error| Error::parse(uri, error.to_string()))?;
-    let parse = |error: serde_json::Error| Error::parse(uri, error.to_string());
+    let probe: Probe = serde_json::from_slice(bytes).map_err(|source| Error::json(uri, source))?;
+    let parse = |source| Error::json(uri, source);
     match probe.layer_type.as_deref() {
         Some("PointCloud") => serde_json::from_slice(bytes)
             .map(|layer| SceneLayerDocument::PointCloud(Box::new(layer)))
@@ -81,10 +80,10 @@ pub(crate) fn parse_node_page_document(
     if point_cloud {
         serde_json::from_slice(bytes)
             .map(NodePageDocument::PointCloud)
-            .map_err(|source| Error::parse(uri, source.to_string()))
+            .map_err(|source| Error::json(uri, source))
     } else {
         serde_json::from_slice(bytes)
             .map(NodePageDocument::Mesh)
-            .map_err(|source| Error::parse(uri, source.to_string()))
+            .map_err(|source| Error::json(uri, source))
     }
 }

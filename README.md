@@ -1,45 +1,53 @@
 # I3S
 
-The [Indexed 3D Scene Layers specification](https://github.com/Esri/i3s-spec)
-as Rust data and common wire-format utilities.
+Rust implementation of Esri's
+[Indexed 3D Scene Layers (I3S)](https://github.com/Esri/i3s-spec) format.
 
-The crate provides generated document types (`cmn`, `bld`, `psl`, `pcsl`),
-resource identities and naming, node-page arithmetic, and uncompressed geometry
-and attribute buffer layouts. It has no feature flags, transport, archive
-backend, compression dependency, runtime, or worker pool.
-
-```rust
-use i3s::{ResourceLocation, Source};
-
-let source = Source::rest("https://example.com/SceneServer", 0);
-let uri = ResourceLocation::NodePage(3).resolve(&source);
-assert!(uri.ends_with("nodepages/3"));
-```
-
-## Application workflows
-
-[Hiera](https://docs.rs/hiera) supplies resource acquisition, hierarchy
-navigation, model conversion, editing, and package publication under
-application-controlled execution and byte admission. Applications can depend
-on Hiera alone:
+## Installation
 
 ```toml
 [dependencies]
-hiera = { version = "0.2", features = ["i3s"] }
+i3s = "0.2"
 ```
 
-`hiera::i3s` re-exports this crate's types and utilities alongside
-`SceneLayerReader`, `SceneLayerHierarchy`, and the other adapters.
-Its `SpecError` is `i3s::Error`; its `Error` describes adapter failures.
-Enable Hiera's `moderu` feature for glTF model integration and `i3s-package`
-for local SLPK/eSLPK storage. Neither is required for native document reads.
+Requires Rust 1.85.
+
+## What's included
+
+- Typed documents for common definitions (`cmn`), buildings (`bld`),
+  3D objects and points (`psl`), and point clouds (`pcsl`).
+- Node and sublayer identities, SLPK hash canonicalization, and node-page arithmetic.
+- Decoding and encoding of uncompressed geometry and attribute buffers.
+
+## Node pages and package hashes
+
+```rust
+use i3s::{slpk_hash_path, page_id_of, page_offset_of};
+
+assert_eq!(slpk_hash_path("/Nodes/6/Geometries/0.bin"), "nodes/6/geometries/0.bin");
+assert_eq!(page_id_of(65, 64), 1);
+assert_eq!(page_offset_of(65, 64), 1);
+```
+
+`slpk_hash_path` applies the SLPK specification's hash-table naming rule;
+it does not resolve addresses or access storage.
+
+## Documents and binary data
+
+Use `SceneLayerDocument` and `NodePageDocument` for parsed control documents.
+The schema types support Serde serialization and deserialization.
+
+`decode_geometry` and `encode_geometry_checked` use a geometry definition and
+explicit counts. `decode_schema_geometry` handles the legacy geometry layout.
+`decode_attribute` and `encode_attribute` handle attribute storage layouts.
+Compressed geometry requires a separate codec.
+
+See the [API documentation](https://docs.rs/i3s) for signatures and examples.
 
 ## Development
 
-Generated modules are checked in; building the crate does not require the
-schema submodule or generator. `generate.ps1` drives the development-only
-`xtask` toolchain. Real-world fixture tests require `tests/realworld/`, which
-is intentionally omitted from the published package.
+Generated types are checked in. `generate.ps1` regenerates them using the
+development-only `xtask` toolchain and schema submodule.
 
 ## License
 

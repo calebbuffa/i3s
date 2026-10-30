@@ -1,8 +1,13 @@
-use super::*;
-use crate::cmn::{
-    CompressedAttributes, CompressedAttributesEncoding, GeometryColor, GeometryColorType,
-    GeometryFaceRange, GeometryFaceRangeType, GeometryNormal, GeometryNormalType, GeometryPosition,
-    GeometryPositionType, GeometryUv, GeometryUvType,
+use i3s::cmn::{
+    CompressedAttributes, CompressedAttributesEncoding, DefaultGeometrySchema,
+    DefaultGeometrySchemaTopology, FeatureAttribute, GeometryAttribute, GeometryAttributeValueType,
+    GeometryBuffer, GeometryColor, GeometryColorType, GeometryFaceRange, GeometryFaceRangeType,
+    GeometryNormal, GeometryNormalType, GeometryPosition, GeometryPositionType, GeometryUv,
+    GeometryUvType, HeaderAttribute, HeaderAttributeType, Value, VertexAttribute,
+};
+use i3s::{
+    Geometry, GeometryCounts, GeometryValues, decode_geometry, decode_schema_geometry,
+    encode_geometry_checked,
 };
 
 fn f32s(values: &[f32]) -> Vec<u8> {
@@ -166,10 +171,10 @@ fn draco_buffer_is_reported_not_guessed() {
         }),
         ..Default::default()
     };
-    assert_eq!(
+    assert!(matches!(
         decode_geometry(&definition, &[], GeometryCounts::default()),
-        Err(GeometryError::Compressed)
-    );
+        Err(i3s::Error::GeometryCompressed)
+    ));
 }
 
 #[test]
@@ -177,7 +182,7 @@ fn short_buffer_is_an_error() {
     let bytes = f32s(&[1.0, 2.0]);
     assert!(matches!(
         decode_geometry(&position_only(), &bytes, GeometryCounts::vertices(1)),
-        Err(GeometryError::UnexpectedEnd { .. })
+        Err(i3s::Error::GeometryUnexpectedEnd { .. })
     ));
 }
 
@@ -187,10 +192,10 @@ fn trailing_bytes_are_an_error() {
     // the data disagree; decoding anything from it would be a guess.
     let mut bytes = f32s(&[1.0, 2.0, 3.0]);
     bytes.push(0);
-    assert_eq!(
+    assert!(matches!(
         decode_geometry(&position_only(), &bytes, GeometryCounts::vertices(1)),
-        Err(GeometryError::TrailingBytes { trailing: 1 })
-    );
+        Err(i3s::Error::GeometryTrailingBytes { trailing: 1 })
+    ));
 }
 
 #[test]
@@ -223,15 +228,14 @@ fn encode_round_trips_every_attribute() {
         feature_count: 1,
     };
     let geometry = decode_geometry(&definition, &bytes, counts).expect("decode");
-    assert_eq!(encode_geometry(&definition, &geometry).unwrap(), bytes);
+    assert_eq!(
+        encode_geometry_checked(&definition, &geometry, counts).unwrap(),
+        bytes
+    );
 }
 
 #[test]
 fn decodes_a_legacy_default_geometry_schema_buffer() {
-    use crate::cmn::{
-        DefaultGeometrySchema, FeatureAttribute, HeaderAttribute, Value, VertexAttribute,
-    };
-
     // Legacy buffers carry their counts in the header rather than taking
     // them from the node page.
     let schema = DefaultGeometrySchema {
@@ -311,12 +315,11 @@ fn encode_preserves_the_offset_header_length() {
         offset: Some(8),
         ..position_only()
     };
-    let geometry = Geometry {
-        position: Some(GeometryValues::F32(vec![1.0, 2.0, 3.0])),
-        vertex_count: 1,
-        ..Default::default()
-    };
-    let encoded = encode_geometry(&definition, &geometry).unwrap();
+    let mut geometry = Geometry::default();
+    geometry.position = Some(GeometryValues::F32(vec![1.0, 2.0, 3.0]));
+    geometry.vertex_count = 1;
+    let counts = GeometryCounts::vertices(1);
+    let encoded = encode_geometry_checked(&definition, &geometry, counts).unwrap();
     assert_eq!(encoded.len(), 8 + 12);
     let decoded =
         decode_geometry(&definition, &encoded, GeometryCounts::vertices(1)).expect("decode");
