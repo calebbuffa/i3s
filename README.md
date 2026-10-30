@@ -1,46 +1,46 @@
-# i3s
+# I3S
 
-Reading Esri [Indexed 3D Scene Layers](https://github.com/Esri/i3s-spec) (I3S)
-in Rust.
+The [Indexed 3D Scene Layers specification](https://github.com/Esri/i3s-spec)
+as Rust data and common wire-format utilities.
 
-The document types in `i3s::generated` are produced from the I3S
-specification's own markdown, so they track the specification rather than a
-hand transcription of it. Around them this crate adds the parts a client needs
-but the schema cannot express:
-
-- **`Source`** - resource naming for REST services, `.slpk` and `.eslpk`, which differ in more than just a prefix.
-- **Wire codecs** - the I3S geometry and attribute binary layouts, including
-  the legacy 1.6 and node-page 1.7+ forms.
-- **`SceneLayerLoader`** - demand-driven hierarchy discovery and recursively-addressed Building sublayers.
-- **`SceneLayerReader`** - a typed reader that decorates a loader, retaining
-  all `hiera::Loader` functionality while adding direct typed document and
-  resource reads.
-- **`SceneLayerNavigator`** - retainable, path-aware cursors over a layer.
-- **`SceneLayerStore`** - caller-owned resource transport.
-
-## Transport and threading belong to the caller
-
-The crate performs no I/O of its own. A loader is given a fetch callback, and
-traversal is driven by the application, so the same code works over HTTP, a
-filesystem, an archive or a cache.
+The crate provides generated document types (`cmn`, `bld`, `psl`, `pcsl`),
+resource identities and naming, node-page arithmetic, and uncompressed geometry
+and attribute buffer layouts. It has no feature flags, transport, archive
+backend, compression dependency, runtime, or worker pool.
 
 ```rust
-use i3s::{SceneLayerLoader, SceneLayerNavigator, SceneLayerReader, Source};
-use std::sync::Arc;
+use i3s::{ResourceLocation, Source};
 
 let source = Source::rest("https://example.com/SceneServer", 0);
-let loader = SceneLayerLoader::open(source, |request: hiera::FetchRequest| async move {
-    // Your transport here.
-    todo!()
-});
-
-let navigator = SceneLayerNavigator::new(SceneLayerReader::new(Arc::new(loader)));
-let root = navigator.root().await?;
-for child in root.children().await? {
-    println!("{}", child.id());
-}
+let uri = ResourceLocation::NodePage(3).resolve(&source);
+assert!(uri.ends_with("nodepages/3"));
 ```
 
-## Licence
+## Application workflows
 
-Apache License 2.0, see [LICENSE](LICENSE) for details.
+[Hiera](https://docs.rs/hiera) supplies resource acquisition, hierarchy
+navigation, model conversion, editing, and package publication under
+application-controlled execution and byte admission. Applications can depend
+on Hiera alone:
+
+```toml
+[dependencies]
+hiera = { version = "0.2", features = ["i3s"] }
+```
+
+`hiera::i3s` re-exports this crate's types and utilities alongside
+`SceneLayerReader`, `SceneLayerHierarchy`, and the other adapters.
+Its `SpecError` is `i3s::Error`; its `Error` describes adapter failures.
+Enable Hiera's `moderu` feature for glTF model integration and `i3s-package`
+for local SLPK/eSLPK storage. Neither is required for native document reads.
+
+## Development
+
+Generated modules are checked in; building the crate does not require the
+schema submodule or generator. `generate.ps1` drives the development-only
+`xtask` toolchain. Real-world fixture tests require `tests/realworld/`, which
+is intentionally omitted from the published package.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

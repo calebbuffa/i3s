@@ -288,7 +288,7 @@ impl Source {
 
     /// A geometry resource.
     ///
-    /// `resource` is `mesh.geometry.resource` - see the [module docs](self) on
+    /// `resource` is `mesh.geometry.resource` - see the module docs on
     /// why this is not the node index. `buffer_index` selects a
     /// `GeometryBuffer` within the node's `GeometryDefinition`.
     ///

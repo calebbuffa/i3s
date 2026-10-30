@@ -1,6 +1,6 @@
 //! Parses layer documents captured verbatim from published I3S services.
 //!
-//! The hand-built fixtures in `loader.rs` prove the loader's logic, but they
+//! The hand-built fixtures in `hierarchy.rs` prove the hierarchy's logic, but they
 //! are written against the *specification*, so they cannot catch the places
 //! where the specification and shipped data disagree - and there are such
 //! places. These documents were fetched from live ArcGIS services and are

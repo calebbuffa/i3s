@@ -14,7 +14,7 @@ $schemaDir = Join-Path $root "extern\i3s-schema\schema"
 Push-Location $root
 try {
     Write-Host "Generating Rust from external JSON Schema" -ForegroundColor Cyan
-    cargo run -q -p xtask -- --schemas $schemaDir --output src\generated.rs
+    cargo run -q -p xtask -- --schema $schemaDir --output src\generated.rs
     if ($LASTEXITCODE -ne 0) { throw "i3s generation failed with exit code $LASTEXITCODE" }
     Write-Host "Done." -ForegroundColor Green
 }

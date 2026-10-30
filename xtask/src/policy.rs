@@ -1,20 +1,22 @@
 use heck::ToUpperCamelCase;
 use schemagen::ir::SchemaNode;
-use schemagen::policy::GenerationPolicy;
-use schemagen::settings::TypeSettings;
-use schemagen::types::RustType;
-use serde::Deserialize;
+use schemagen::{GenerationPolicy, StringRepr, TypeSettings};
 use std::path::Path;
 
-#[derive(Debug, Deserialize)]
-pub struct I3sConfig {
-    #[serde(default)]
-    pub name_overrides: std::collections::HashMap<String, String>,
-}
+/// Types whose schema file stem is a poor name, by lowercased stem.
+const NAME_OVERRIDES: &[(&str, &str)] = &[
+    ("3dscenelayer", "SceneLayerInfo"),
+    ("3dnodeindexdocument", "NodeIndexDocument"),
+    ("sharedresource", "SharedResources"),
+    ("attributestats", "AttributeStatistics"),
+];
 
+/// The rules for one I3S profile's module.
+///
+/// Data about particular schemas lives in `config.rs`; the representation
+/// choices, the naming rule and the profile filter are code.
 pub struct I3sPolicy<'a> {
     pub profile: &'a str,
-    pub config: &'a I3sConfig,
 }
 
 impl GenerationPolicy for I3sPolicy<'_> {
@@ -24,9 +26,11 @@ impl GenerationPolicy for I3sPolicy<'_> {
         // field. Numeric widths stay at JSON's own, because the spec's own
         // `minimum`/`maximum` bounds already narrow the fields that can be
         // narrowed, and narrowing the rest by default would be a guess.
-        TypeSettings::default().with_string(schemagen::StringRepr::Boxed)
+        TypeSettings::default().with_string(StringRepr::Boxed)
     }
 
+    /// Names a type after its schema file, suffixed by its profile unless it
+    /// is a common type.
     fn type_name(&self, title: &str, schema: &SchemaNode) -> Option<String> {
         let stem = Path::new(&schema.location.file)
             .file_stem()?
@@ -35,13 +39,12 @@ impl GenerationPolicy for I3sPolicy<'_> {
             .unwrap_or_default()
             .to_string();
         let key = stem.to_lowercase();
-        let base = self
-            .config
-            .name_overrides
-            .get(&key)
-            .cloned()
-            .or_else(|| (!stem.is_empty()).then(|| pascal_ident(&stem)))
-            .or_else(|| (!title.is_empty()).then(|| pascal_ident(title)))?;
+        let base = NAME_OVERRIDES
+            .iter()
+            .find(|(known, _)| *known == key)
+            .map(|(_, name)| (*name).to_owned())
+            .or_else(|| (!stem.is_empty()).then(|| stem.to_upper_camel_case()))
+            .or_else(|| (!title.is_empty()).then(|| title.to_upper_camel_case()))?;
         let schema_profile = Path::new(&schema.location.file)
             .parent()
             .and_then(Path::file_name)
@@ -58,27 +61,4 @@ impl GenerationPolicy for I3sPolicy<'_> {
             .and_then(Path::file_name)
             .is_some_and(|profile| profile == self.profile)
     }
-
-    fn additional_definitions(&self) -> Vec<proc_macro2::TokenStream> {
-        if self.profile == "cmn" {
-            Vec::new()
-        } else {
-            vec![quote::quote!(
-                use super::cmn::*;
-            )]
-        }
-    }
-
-    fn field_type(
-        &self,
-        _owner: &SchemaNode,
-        field: &str,
-        _schema: &SchemaNode,
-    ) -> Option<RustType> {
-        (field == "$ref").then_some(RustType::String)
-    }
-}
-
-fn pascal_ident(value: &str) -> String {
-    value.to_upper_camel_case()
 }
